@@ -8,7 +8,7 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 
-from ansible_collections.community.general.tests.unit.compat.mock import patch
+from unittest.mock import patch
 from ansible_collections.kmpm.incus.plugins.modules import incus_instance
 from ansible_collections.community.general.tests.unit.plugins.modules.utils import AnsibleExitJson, ModuleTestCase, set_module_args
 
