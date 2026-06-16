@@ -42,14 +42,14 @@ jobs:
         uses: ansible-community/ansible-test-gh-action@release/v1
         with:
           # start off with 2.16 and then close in to what https://github.com/ansible-collections/community.general is using
-          ansible-core-version: stable-2.17
+          ansible-core-version: stable-2.20
           testing-type: sanity
           collection-src-directory: kmpm.incus
 
       - name: Perform unit testing with ansible-test
         uses: ansible-community/ansible-test-gh-action@release/v1
         with:
-          ansible-core-version: stable-2.17
+          ansible-core-version: stable-2.20
           testing-type: units
           collection-src-directory: kmpm.incus
           # pre-test-cmd: |
@@ -58,3 +58,39 @@ jobs:
           # test-deps: >-
           #   ansible.netcommon
           #   ansible.utils
+
+  "integration-testing":
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ansible_collections/kmpm/incus
+
+      - name: Install Incus (Zabbly Repository)
+        run: |
+          sudo curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
+          sudo sh -c 'cat <<EOF > /etc/apt/sources.list.d/zabbly-incus-stable.sources
+          Enabled: yes
+          Types: deb
+          URIs: https://pkgs.zabbly.com/incus/stable
+          Suites: $(. /etc/os-release && echo ${VERSION_CODENAME})
+          Components: main
+          Architectures: $(dpkg --print-architecture)
+          Signed-By: /etc/apt/keyrings/zabbly.asc
+          EOF'
+          sudo apt-get update
+          sudo apt-get install -y incus
+
+      - name: Initialize Incus
+        run: |
+          sudo incus admin init --auto
+          sudo adduser runner incus-admin
+
+      - run: |
+          python3 -m pip install ansible
+          which ansible-test
+
+      # `sudo -u runner` is necessary to execute with the new group membership
+      - run: sudo -E -u runner /home/runner/.local/bin/ansible-test integration --allow-unsupported
+        working-directory: ansible_collections/kmpm/incus

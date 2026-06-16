@@ -2,7 +2,7 @@
 - name: create container
   kmpm.incus.incus_instance:
     name: mycontainer
-    source: 
+    source:
       type: image
       alias: debian/12/cloud
       server: "https://images.linuxcontainers.org"
@@ -21,7 +21,7 @@
   kmpm.incus.incus_instance:
     name: myvm
     type: virtual-machine
-    source: 
+    source:
       type: image
       alias: debian/12/cloud
       server: "https://images.linuxcontainers.org"
@@ -30,13 +30,30 @@
       allow_inconsistent: false
   register: create_vm_result
 
+- name: Debug
+  ansible.builtin.debug:
+    var: create_vm_result
 
 - name: wait a bit for vm too boot
   ansible.builtin.pause:
-    seconds: 30
+    seconds: 60
 
 # could check state of vm here and assert that is running and have
 # >0 processes
+
+- name: Get a specific instance
+  kmpm.incus.incus_instance_info:
+    name: mymv
+  register: instance
+
+- name: Debug instance
+  ansible.builtin.debug:
+    var: instance
+
+- name: stop vm
+  kmpm.incus.incus_instance:
+    name: myvm
+    state: stopped
 
 - name: destroy vm
   kmpm.incus.incus_instance:
@@ -50,7 +67,7 @@
       - create_result.changed == True
       - create_result.actions == ['create', 'start']
       - not create_result.failed
-  
+
 - name: check destroy_result
   assert:
     that:
@@ -65,9 +82,13 @@
       - create_vm_result.actions == ['create', 'start']
       - not create_vm_result.failed
 
+- name: debug result
+  ansible.builtin.debug:
+    var: destroy_vm_result
+
 - name: check destroy_vm_result
   assert:
     that:
       - destroy_vm_result.changed == True
-      - destroy_vm_result.actions == ['stop', 'delete']
+      - destroy_vm_result.actions == ['delete']
       - not destroy_vm_result.failed

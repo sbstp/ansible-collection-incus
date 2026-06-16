@@ -9,6 +9,7 @@ __metaclass__ = type
 
 
 from unittest.mock import patch
+from ansible.module_utils import basic
 from ansible_collections.kmpm.incus.plugins.modules import incus_instance
 from ansible_collections.community.general.tests.unit.plugins.modules.utils import AnsibleExitJson, ModuleTestCase, set_module_args
 
@@ -32,12 +33,16 @@ class IncusInstanceTestCase(ModuleTestCase):
 
     def setUp(self):
         super(IncusInstanceTestCase, self).setUp()
+        # ansible-core 2.20+ requires _ANSIBLE_PROFILE to be set
+        self.mock_profile = patch.object(basic, '_ANSIBLE_PROFILE', 'legacy')
+        self.mock_profile.start()
         ansible_module_path = 'ansible_collections.kmpm.incus.plugins.modules.incus_instance.AnsibleModule'
         self.mock_run_command = patch('%s.run_command' % ansible_module_path)
         self.module_main_command = self.mock_run_command.start()
 
     def tearDown(self):
         self.mock_run_command.stop()
+        self.mock_profile.stop()
         super(IncusInstanceTestCase, self).tearDown()
 
     def module_main(self, exit_exc):
