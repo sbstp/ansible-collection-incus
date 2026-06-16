@@ -4,7 +4,8 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - develop
+      - main
   # schedule:
   #   - cron: "0 4 * * 4"
 
@@ -14,8 +15,7 @@ permissions:
 # please track https://github.com/ansible-collections/news-for-maintainers/issues/28
 
 jobs:
-  'sanity-and-unit-testing':
-
+  "sanity-and-unit-testing":
     runs-on: ubuntu-24.04
 
     steps:
@@ -45,7 +45,7 @@ jobs:
           ansible-core-version: stable-2.16
           testing-type: sanity
           collection-src-directory: kmpm.incus
-      
+
       - name: Perform unit testing with ansible-test
         uses: ansible-community/ansible-test-gh-action@release/v1
         with:
