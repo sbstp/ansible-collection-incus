@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from __future__ import absolute_import, division, print_function
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import Patch
 __metaclass__ = type
 
 DOCUMENTATION = r'''
@@ -69,7 +68,7 @@ EXAMPLES = '''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import IncusClient
+from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import IncusClient, Patch
 
 SUPPORTED_FIELDS = {'name', 'description', 'driver', 'config'}
 
@@ -100,7 +99,6 @@ class IncusStorageManagement(object):
             ),
             next_state=next_state,
         )
-
 
     def run(self):
         patch = self.patch
