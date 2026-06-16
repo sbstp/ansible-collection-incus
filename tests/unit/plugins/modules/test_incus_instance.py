@@ -46,16 +46,16 @@ class IncusInstanceTestCase(ModuleTestCase):
         return exc.exception.args[0]
 
     def test_absent(self):
-        set_module_args({'name': 'testinstance', 'state': 'absent'})
-        self.module_main_command.side_effect = [
-            (0, '{}', ''),
-            (0, '{}', ''),
-        ]
-        result = self.module_main(AnsibleExitJson)
-        self.assertFalse(result['changed'], result)
+        with set_module_args({'name': 'testinstance', 'state': 'absent'}):
+            self.module_main_command.side_effect = [
+                (0, '{}', ''),
+                (0, '{}', ''),
+            ]
+            result = self.module_main(AnsibleExitJson)
+            self.assertFalse(result['changed'], result)
 
     def test_started_container(self):
-        set_module_args({
+        with set_module_args({
             'name': 'testinstance',
             'state': 'started',
             'source': {
@@ -65,17 +65,17 @@ class IncusInstanceTestCase(ModuleTestCase):
                 'protocol': "simplestreams",
                 'mode': "pull"
             }
-        })
-        self.module_main_command.side_effect = [
-            (0, '{}', ''),
-            (0, '{}', ''),
-        ]
-        result = self.module_main(AnsibleExitJson)
-        print("result", result)
-        self.assertTrue(result['changed'], result)
+        }):
+            self.module_main_command.side_effect = [
+                (0, '{}', ''),
+                (0, '{}', ''),
+            ]
+            result = self.module_main(AnsibleExitJson)
+            print("result", result)
+            self.assertTrue(result['changed'], result)
 
     def test_started_vm(self):
-        set_module_args({
+        with set_module_args({
             'name': 'testvm',
             'state': 'started',
             'source': {
@@ -86,7 +86,7 @@ class IncusInstanceTestCase(ModuleTestCase):
                 'mode': "pull",
             },
             'type': 'virtual-machine',
-        })
-        result = self.module_main(AnsibleExitJson)
-        print("result", result)
-        self.assertTrue(result['changed'], result)
+        }):
+            result = self.module_main(AnsibleExitJson)
+            print("result", result)
+            self.assertTrue(result['changed'], result)
