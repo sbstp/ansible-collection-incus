@@ -8,12 +8,7 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 import pytest
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-# from ansible_collections.community.general.tests.unit.compat.mock import patch
+from unittest.mock import patch
 from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import IncusClient, ensure_remote
 
 

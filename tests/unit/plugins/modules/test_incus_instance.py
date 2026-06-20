@@ -8,7 +8,8 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 
-from ansible_collections.community.general.tests.unit.compat.mock import patch
+from unittest.mock import patch
+from ansible.module_utils import basic
 from ansible_collections.kmpm.incus.plugins.modules import incus_instance
 from ansible_collections.community.general.tests.unit.plugins.modules.utils import AnsibleExitJson, ModuleTestCase, set_module_args
 
@@ -32,12 +33,16 @@ class IncusInstanceTestCase(ModuleTestCase):
 
     def setUp(self):
         super(IncusInstanceTestCase, self).setUp()
+        # ansible-core 2.20+ requires _ANSIBLE_PROFILE to be set
+        self.mock_profile = patch.object(basic, '_ANSIBLE_PROFILE', 'legacy')
+        self.mock_profile.start()
         ansible_module_path = 'ansible_collections.kmpm.incus.plugins.modules.incus_instance.AnsibleModule'
         self.mock_run_command = patch('%s.run_command' % ansible_module_path)
         self.module_main_command = self.mock_run_command.start()
 
     def tearDown(self):
         self.mock_run_command.stop()
+        self.mock_profile.stop()
         super(IncusInstanceTestCase, self).tearDown()
 
     def module_main(self, exit_exc):
@@ -46,16 +51,16 @@ class IncusInstanceTestCase(ModuleTestCase):
         return exc.exception.args[0]
 
     def test_absent(self):
-        set_module_args({'name': 'testinstance', 'state': 'absent'})
-        self.module_main_command.side_effect = [
-            (0, '{}', ''),
-            (0, '{}', ''),
-        ]
-        result = self.module_main(AnsibleExitJson)
-        self.assertFalse(result['changed'], result)
+        with set_module_args({'name': 'testinstance', 'state': 'absent'}):
+            self.module_main_command.side_effect = [
+                (0, '{}', ''),
+                (0, '{}', ''),
+            ]
+            result = self.module_main(AnsibleExitJson)
+            self.assertFalse(result['changed'], result)
 
     def test_started_container(self):
-        set_module_args({
+        with set_module_args({
             'name': 'testinstance',
             'state': 'started',
             'source': {
@@ -65,17 +70,17 @@ class IncusInstanceTestCase(ModuleTestCase):
                 'protocol': "simplestreams",
                 'mode': "pull"
             }
-        })
-        self.module_main_command.side_effect = [
-            (0, '{}', ''),
-            (0, '{}', ''),
-        ]
-        result = self.module_main(AnsibleExitJson)
-        print("result", result)
-        self.assertTrue(result['changed'], result)
+        }):
+            self.module_main_command.side_effect = [
+                (0, '{}', ''),
+                (0, '{}', ''),
+            ]
+            result = self.module_main(AnsibleExitJson)
+            print("result", result)
+            self.assertTrue(result['changed'], result)
 
     def test_started_vm(self):
-        set_module_args({
+        with set_module_args({
             'name': 'testvm',
             'state': 'started',
             'source': {
@@ -86,7 +91,7 @@ class IncusInstanceTestCase(ModuleTestCase):
                 'mode': "pull",
             },
             'type': 'virtual-machine',
-        })
-        result = self.module_main(AnsibleExitJson)
-        print("result", result)
-        self.assertTrue(result['changed'], result)
+        }):
+            result = self.module_main(AnsibleExitJson)
+            print("result", result)
+            self.assertTrue(result['changed'], result)
