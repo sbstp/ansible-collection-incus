@@ -1,16 +1,11 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 # Based on community.general.lxd_container.py by (c) 2016, Hiroaki Nakamura <hnakamur@gmail.com>
 # (c) 2024, Peter Magnusson <me@kmpm.se>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
-
-
-DOCUMENTATION = '''
+DOCUMENTATION = """
 ---
 module: incus_instance
 short_description: Manage Incus instances
@@ -172,9 +167,9 @@ notes:
   - You can copy a file in the created instance to the localhost
     with C(command=incus file pull instance_name/dir/filename filename).
     See the first example below.
-'''
+"""
 
-EXAMPLES = '''
+EXAMPLES = """
 # An example for creating a Debian container and install python
 - hosts: localhost
   connection: local
@@ -321,9 +316,9 @@ EXAMPLES = '''
           server: https://images.linuxcontainers.org
           alias: debian/11
         timeout: 600
-'''
+"""
 
-RETURN = '''
+RETURN = """
 addresses:
   description: Mapping from the network device name to a list of IPv4 addresses in the instance.
   returned: when state is started or restarted
@@ -344,41 +339,51 @@ actions:
   returned: success
   type: list
   sample: ["create", "start"]
-'''
+"""
 import copy
 import datetime
 import time
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
-    IncusClient, IncusClientException)
+    IncusClient,
+    IncusClientException,
+)
 
 # INCUS_ANSIBLE_STATES is a map of states that contain values of methods used
 # when a particular state is evoked.
 INCUS_ANSIBLE_STATES = {
-    'started': '_started',
-    'stopped': '_stopped',
-    'restarted': '_restarted',
-    'absent': '_destroyed',
-    'frozen': '_frozen',
+    "started": "_started",
+    "stopped": "_stopped",
+    "restarted": "_restarted",
+    "absent": "_destroyed",
+    "frozen": "_frozen",
 }
 
 # ANSIBLE_INCUS_STATES is a map of states of incus containers to the Ansible
 # incus_container module state parameter value.
 ANSIBLE_INCUS_STATES = {
-    'Running': 'started',
-    'Stopped': 'stopped',
-    'Frozen': 'frozen',
+    "Running": "started",
+    "Stopped": "stopped",
+    "Frozen": "frozen",
 }
 
 # CONFIG_PARAMS is a list of config attribute names.
 CONFIG_PARAMS = [
-    'name', 'description', 'architecture', 'config', 'devices', 'ephemeral', 'profiles', 'source', 'type'
+    "name",
+    "description",
+    "architecture",
+    "config",
+    "devices",
+    "ephemeral",
+    "profiles",
+    "source",
+    "type",
 ]
 
 # CONFIG_CREATION_PARAMS is a list of attribute names that are only applied
 # on instance creation.
-CONFIG_CREATION_PARAMS = ['source', 'type']
+CONFIG_CREATION_PARAMS = ["source", "type"]
 
 
 class IncusInstanceManagement(object):
@@ -389,36 +394,34 @@ class IncusInstanceManagement(object):
         :type module: ``object``
         """
         self.module = module
-        self.name = self.module.params['name']
-        self.project = self.module.params['project']
-        self.description = self.module.params['description']
-        self.remote = self.module.params['remote']
+        self.name = self.module.params["name"]
+        self.project = self.module.params["project"]
+        self.description = self.module.params["description"]
+        self.remote = self.module.params["remote"]
         self._build_config()
 
-        self.state = self.module.params['state']
-        self.api_endpoint = '/1.0/instances'
-        self.timeout = self.module.params['timeout']
-        self.wait_for_ipv4_addresses = self.module.params['wait_for_ipv4_addresses']
-        self.force_stop = self.module.params['force_stop']
+        self.state = self.module.params["state"]
+        self.api_endpoint = "/1.0/instances"
+        self.timeout = self.module.params["timeout"]
+        self.wait_for_ipv4_addresses = self.module.params["wait_for_ipv4_addresses"]
+        self.force_stop = self.module.params["force_stop"]
         self.addresses = None
-        self.target = self.module.params['target']
-        self.wait_for_container = self.module.params['wait_for_container']
+        self.target = self.module.params["target"]
+        self.wait_for_container = self.module.params["wait_for_container"]
 
-        self.type = self.module.params['type']
+        self.type = self.module.params["type"]
 
         self.debug = self.module._verbosity >= 3
 
         try:
             self.client = IncusClient(
-                project=self.project,
-                remote=self.remote,
-                debug=self.debug
+                project=self.project, remote=self.remote, debug=self.debug
             )
         except IncusClientException as e:
             self.module.fail_json(msg=e.msg)
 
         self.actions = []
-        self.diff = {'before': {}, 'after': {}}
+        self.diff = {"before": {}, "after": {}}
         self.old_instance = {}
         self.old_sections = {}
 
@@ -430,78 +433,85 @@ class IncusInstanceManagement(object):
                 self.config[attr] = param_val
 
     def _get_instance_json(self):
-        url = '{0}/{1}'.format(self.api_endpoint, self.name)
+        url = "{0}/{1}".format(self.api_endpoint, self.name)
         try:
-            return self.client.query_raw('GET', url)
+            return self.client.query_raw("GET", url)
         except IncusClientException as ex:
-            return {'type': 'error', 'error': ex.msg}
+            return {"type": "error", "error": ex.msg}
 
     def _get_instance_state_json(self):
-        url = '{0}/{1}/state'.format(self.api_endpoint, self.name)
-        return self.client.query_raw('GET', url, ok_errors=[404])
+        url = "{0}/{1}/state".format(self.api_endpoint, self.name)
+        return self.client.query_raw("GET", url, ok_errors=[404])
 
     @staticmethod
     def _instance_json_to_module_state(resp_json):
-        if resp_json['type'] == 'error':
-            return 'absent'
-        return ANSIBLE_INCUS_STATES[resp_json['metadata']['status']]
+        if resp_json["type"] == "error":
+            return "absent"
+        return ANSIBLE_INCUS_STATES[resp_json["metadata"]["status"]]
 
     def _change_state(self, action, force_stop=False):
-        url = '{0}/{1}/state'.format(self.api_endpoint, self.name)
-        payload = {'action': action, 'timeout': self.timeout}
+        url = "{0}/{1}/state".format(self.api_endpoint, self.name)
+        payload = {"action": action, "timeout": self.timeout}
         if force_stop:
-            payload['force'] = True
+            payload["force"] = True
         if not self.module.check_mode:
-            return self.client.query_raw('PUT', url, payload=payload)
+            return self.client.query_raw("PUT", url, payload=payload)
 
     def _create_instance(self):
         url = self.api_endpoint
         url_params = dict()
         if self.target:
-            url_params['target'] = self.target
+            url_params["target"] = self.target
         if self.project:
-            url_params['project'] = self.project
+            url_params["project"] = self.project
 
         config = self.config.copy()
-        config['name'] = self.name
+        config["name"] = self.name
         if self.type not in self.api_endpoint:
-            config['type'] = self.type
+            config["type"] = self.type
         if not self.module.check_mode:
             # self.client.do('POST', url, config, wait_for_container=self.wait_for_container)
-            self.client.query_raw('POST', url, payload=config, url_params=url_params)
-        self.actions.append('create')
+            self.client.query_raw("POST", url, payload=config, url_params=url_params)
+        self.actions.append("create")
 
     def _start_instance(self):
-        self._change_state('start')
-        self.actions.append('start')
+        self._change_state("start")
+        self.actions.append("start")
 
     def _stop_instance(self):
-        self._change_state('stop', self.force_stop)
-        self.actions.append('stop')
+        self._change_state("stop", self.force_stop)
+        self.actions.append("stop")
 
     def _restart_instance(self):
-        self._change_state('restart', self.force_stop)
-        self.actions.append('restart')
+        self._change_state("restart", self.force_stop)
+        self.actions.append("restart")
 
     def _delete_instance(self):
-        url = '{0}/{1}'.format(self.api_endpoint, self.name)
+        url = "{0}/{1}".format(self.api_endpoint, self.name)
         if not self.module.check_mode:
-            self.client.query_raw('DELETE', url)
-        self.actions.append('delete')
+            self.client.query_raw("DELETE", url)
+        self.actions.append("delete")
 
     def _freeze_instance(self):
-        self._change_state('freeze')
-        self.actions.append('freeze')
+        self._change_state("freeze")
+        self.actions.append("freeze")
 
     def _unfreeze_instance(self):
-        self._change_state('unfreeze')
-        self.actions.append('unfreeze')
+        self._change_state("unfreeze")
+        self.actions.append("unfreeze")
 
     def _instance_ipv4_addresses(self, ignore_devices=None):
-        ignore_devices = ['lo'] if ignore_devices is None else ignore_devices
-        data = (self._get_instance_state_json() or {}).get('metadata', None) or {}
-        network = dict((k, v) for k, v in (data.get('network', None) or {}).items() if k not in ignore_devices)
-        addresses = dict((k, [a['address'] for a in v['addresses'] if a['family'] == 'inet']) for k, v in network.items())
+        ignore_devices = ["lo"] if ignore_devices is None else ignore_devices
+        data = (self._get_instance_state_json() or {}).get("metadata", None) or {}
+        network = dict(
+            (k, v)
+            for k, v in (data.get("network", None) or {}).items()
+            if k not in ignore_devices
+        )
+        addresses = dict(
+            (k, [a["address"] for a in v["addresses"] if a["family"] == "inet"])
+            for k, v in network.items()
+        )
         return addresses
 
     @staticmethod
@@ -518,17 +528,17 @@ class IncusInstanceManagement(object):
                     self.addresses = addresses
                     return
         except IncusClientException as e:
-            e.msg = 'timeout for getting IPv4 addresses'
+            e.msg = "timeout for getting IPv4 addresses"
             raise
 
     def _started(self):
-        if self.old_state == 'absent':
+        if self.old_state == "absent":
             self._create_instance()
             self._start_instance()
         else:
-            if self.old_state == 'frozen':
+            if self.old_state == "frozen":
                 self._unfreeze_instance()
-            elif self.old_state == 'stopped':
+            elif self.old_state == "stopped":
                 self._start_instance()
             if self._needs_to_apply_instance_configs():
                 self._apply_instance_configs()
@@ -536,27 +546,27 @@ class IncusInstanceManagement(object):
             self._get_addresses()
 
     def _stopped(self):
-        if self.old_state == 'absent':
+        if self.old_state == "absent":
             self._create_instance()
         else:
-            if self.old_state == 'stopped':
+            if self.old_state == "stopped":
                 if self._needs_to_apply_instance_configs():
                     self._start_instance()
                     self._apply_instance_configs()
                     self._stop_instance()
             else:
-                if self.old_state == 'frozen':
+                if self.old_state == "frozen":
                     self._unfreeze_instance()
                 if self._needs_to_apply_instance_configs():
                     self._apply_instance_configs()
                 self._stop_instance()
 
     def _restarted(self):
-        if self.old_state == 'absent':
+        if self.old_state == "absent":
             self._create_instance()
             self._start_instance()
         else:
-            if self.old_state == 'frozen':
+            if self.old_state == "frozen":
                 self._unfreeze_instance()
             if self._needs_to_apply_instance_configs():
                 self._apply_instance_configs()
@@ -565,20 +575,20 @@ class IncusInstanceManagement(object):
             self._get_addresses()
 
     def _destroyed(self):
-        if self.old_state != 'absent':
-            if self.old_state == 'frozen':
+        if self.old_state != "absent":
+            if self.old_state == "frozen":
                 self._unfreeze_instance()
-            if self.old_state != 'stopped':
+            if self.old_state != "stopped":
                 self._stop_instance()
             self._delete_instance()
 
     def _frozen(self):
-        if self.old_state == 'absent':
+        if self.old_state == "absent":
             self._create_instance()
             self._start_instance()
             self._freeze_instance()
         else:
-            if self.old_state == 'stopped':
+            if self.old_state == "stopped":
                 self._start_instance()
             if self._needs_to_apply_instance_configs():
                 self._apply_instance_configs()
@@ -588,10 +598,10 @@ class IncusInstanceManagement(object):
         if key not in self.config:
             return False
 
-        if key == 'config':
+        if key == "config":
             # self.old_sections is already filtered for volatile keys if necessary
             old_configs = dict(self.old_sections.get(key, None) or {})
-            for k, v in self.config['config'].items():
+            for k, v in self.config["config"].items():
                 if k not in old_configs:
                     return True
                 if old_configs[k] != v:
@@ -608,76 +618,86 @@ class IncusInstanceManagement(object):
         return False
 
     def _apply_instance_configs(self):
-        old_metadata = copy.deepcopy(self.old_instance).get('metadata', None) or {}
+        old_metadata = copy.deepcopy(self.old_instance).get("metadata", None) or {}
         payload = {}
         for param in set(CONFIG_PARAMS) - set(CONFIG_CREATION_PARAMS):
             if param in old_metadata:
                 payload[param] = old_metadata[param]
 
             if self._needs_to_change_instance_config(param):
-                if param == 'config':
-                    payload['config'] = payload.get('config', None) or {}
-                    for k, v in self.config['config'].items():
-                        payload['config'][k] = v
+                if param == "config":
+                    payload["config"] = payload.get("config", None) or {}
+                    for k, v in self.config["config"].items():
+                        payload["config"][k] = v
                 else:
                     payload[param] = self.config[param]
-        self.diff['after']['instance'] = payload
-        url = '{0}/{1}'.format(self.api_endpoint, self.name)
+        self.diff["after"]["instance"] = payload
+        url = "{0}/{1}".format(self.api_endpoint, self.name)
 
         if not self.module.check_mode:
-            self.client.query_raw('PUT', url, payload=payload)
-        self.actions.append('apply_instance_configs')
+            self.client.query_raw("PUT", url, payload=payload)
+        self.actions.append("apply_instance_configs")
 
     def run(self):
         """Run the main method."""
 
         try:
-
-            self.ignore_volatile_options = self.module.params.get('ignore_volatile_options')
+            self.ignore_volatile_options = self.module.params.get(
+                "ignore_volatile_options"
+            )
             self.old_instance = self._get_instance_json()
             self.old_sections = dict(
-                (section, content) if not isinstance(content, dict)
-                else (section, dict((k, v) for k, v in content.items()
-                                    if not (self.ignore_volatile_options and k.startswith('volatile.'))))
+                (section, content)
+                if not isinstance(content, dict)
+                else (
+                    section,
+                    dict(
+                        (k, v)
+                        for k, v in content.items()
+                        if not (
+                            self.ignore_volatile_options and k.startswith("volatile.")
+                        )
+                    ),
+                )
                 for section, content in (self.old_instance or {}).items()
                 if section in set(CONFIG_PARAMS) - set(CONFIG_CREATION_PARAMS)
             )
 
-            self.diff['before']['instance'] = self.old_sections
+            self.diff["before"]["instance"] = self.old_sections
             # preliminary, will be overwritten in _apply_instance_configs() if called
-            self.diff['after']['instance'] = self.config
+            self.diff["after"]["instance"] = self.config
 
             self.old_state = self._instance_json_to_module_state(self.old_instance)
-            self.diff['before']['state'] = self.old_state
-            self.diff['after']['state'] = self.state
+            self.diff["before"]["state"] = self.old_state
+            self.diff["after"]["state"] = self.state
 
             action = getattr(self, INCUS_ANSIBLE_STATES[self.state])
             action()
 
             state_changed = len(self.actions) > 0
             result_json = {
-                'log_verbosity': self.module._verbosity,
-                'changed': state_changed,
-                'old_state': self.old_state,
-                'actions': self.actions,
-                'diff': self.diff,
-                'instance': self.diff['after']['instance'],
+                "log_verbosity": self.module._verbosity,
+                "changed": state_changed,
+                "old_state": self.old_state,
+                "actions": self.actions,
+                "diff": self.diff,
+                "instance": self.diff["after"]["instance"],
             }
             if self.client.debug:
-                result_json['logs'] = self.client.logs
+                result_json["logs"] = self.client.logs
             if self.addresses is not None:
-                result_json['addresses'] = self.addresses
+                result_json["addresses"] = self.addresses
             self.module.exit_json(**result_json)
         except IncusClientException as e:
             state_changed = len(self.actions) > 0
             fail_params = {
-                'msg': e.msg,
-                'changed': state_changed,
-                'actions': self.actions,
-                'diff': self.diff,
+                "msg": e.msg,
+                "changed": state_changed,
+                "actions": self.actions,
+                "diff": self.diff,
             }
             if self.client.debug:
-                fail_params['logs'] = e.kwargs['logs']
+                fail_params["logs"] = e.kwargs["logs"]
             self.module.fail_json(**fail_params)
 
 
@@ -687,69 +707,66 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             name=dict(
-                type='str',
+                type="str",
                 required=True,
             ),
             remote=dict(
-                type='str',
-                default='local',
+                type="str",
+                default="local",
             ),
             description=dict(
-                type='str',
+                type="str",
             ),
             project=dict(
-                type='str',
-                default='default',
+                type="str",
+                default="default",
             ),
             architecture=dict(
-                type='str',
+                type="str",
             ),
             config=dict(
-                type='dict',
+                type="dict",
             ),
             ignore_volatile_options=dict(
-                type='bool',
+                type="bool",
                 default=False,
             ),
             devices=dict(
-                type='dict',
+                type="dict",
             ),
             ephemeral=dict(
-                type='bool',
+                type="bool",
             ),
             profiles=dict(
-                type='list',
-                elements='str',
+                type="list",
+                elements="str",
             ),
             source=dict(
-                type='dict',
+                type="dict",
             ),
             state=dict(
                 choices=list(INCUS_ANSIBLE_STATES.keys()),
-                default='started',
+                default="started",
             ),
             target=dict(
-                type='str',
+                type="str",
             ),
-            timeout=dict(
-                type='int',
-                default=30
-            ),
+            timeout=dict(type="int", default=30),
             type=dict(
-                type='str',
-                default='container',
-                choices=['container', 'virtual-machine'],
+                type="str",
+                default="container",
+                choices=["container", "virtual-machine"],
             ),
             wait_for_container=dict(
-                type='bool',
+                type="bool",
                 default=False,
             ),
             wait_for_ipv4_addresses=dict(
-                type='bool',
+                type="bool",
                 default=False,
             ),
             force_stop=dict(
-                type='bool',
+                type="bool",
                 default=False,
             ),
         ),
@@ -760,5 +777,5 @@ def main():
     incus_manage.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

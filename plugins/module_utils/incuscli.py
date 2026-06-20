@@ -1,31 +1,27 @@
-# -*- coding: utf-8 -*-
 # Based on connection/incus.py (c) 2023, Stephane Graber <stgraber@stgraber.org>
 # (c) 2023, Peter Magnusson <me@kmpm.se>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
-
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
 
 import json
 import re
 from subprocess import Popen, PIPE
 from ansible.module_utils.common.process import get_bin_path
 from ansible.module_utils._text import to_bytes, to_text
-from ansible.module_utils.six.moves.urllib.parse import urlencode
+from urllib.parse import urlencode
 from ansible.module_utils.common.dict_transformations import dict_merge, recursive_diff
 
-validRemote = re.compile(r'^[a-zA-Z0-9]*[:]*$')
+validRemote = re.compile(r"^[a-zA-Z0-9]*[:]*$")
 
 
 def ensure_remote(remote):
     """Ensure remote is in the correct format."""
     # check for only alphanumeric characters and no whitespace
     if not validRemote.match(remote):
-        raise ValueError('Remote must be alphanumeric and not contain whitespace')
+        raise ValueError("Remote must be alphanumeric and not contain whitespace")
 
-    if remote and not remote.endswith(':'):
-        return remote + ':'
+    if remote and not remote.endswith(":"):
+        return remote + ":"
     return remote
 
 
@@ -35,14 +31,22 @@ class IncusClientException(Exception):
         self.kwargs = kwargs
 
     def __str__(self):
-        return '{0} {1}'.format(self.msg, self.kwargs)
+        return "{0} {1}".format(self.msg, self.kwargs)
 
 
 class IncusClient(object):
-    def __init__(self, remote='local', project='default', target=None, debug=False, *args, **kwargs):
+    def __init__(
+        self,
+        remote="local",
+        project="default",
+        target=None,
+        debug=False,
+        *args,
+        **kwargs,
+    ):
         self.debug = debug
-        self.remote = remote if remote else 'local'
-        self.project = project if project else 'default'
+        self.remote = remote if remote else "local"
+        self.project = project if project else "default"
         self.target = target
         self.logs = []
 
@@ -53,22 +57,24 @@ class IncusClient(object):
     def _parseErr(self, returncode, stderr):
         err_params = {"rc": returncode}
         if self.debug:
-            err_params['logs'] = self.logs
-        if stderr != '':
-            err_params['error'] = stderr
+            err_params["logs"] = self.logs
+        if stderr != "":
+            err_params["error"] = stderr
             raise IncusClientException(stderr, **err_params)
         elif returncode != 0:
-            raise IncusClientException('Error Exit {0}'.format(returncode), **err_params)
+            raise IncusClientException(
+                "Error Exit {0}".format(returncode), **err_params
+            )
 
     def _parsErrFromJson(self, json_data, ok_errors=None):
-        if json_data.get('type') == 'error':
-            if ok_errors and json_data['error_code'] in ok_errors:
+        if json_data.get("type") == "error":
+            if ok_errors and json_data["error_code"] in ok_errors:
                 return None
             else:
-                err_params = {'error_code': json_data['error_code']}
+                err_params = {"error_code": json_data["error_code"]}
                 if self.debug:
-                    err_params['logs'] = self.logs
-                raise IncusClientException(json_data['error'], **err_params)
+                    err_params["logs"] = self.logs
+                raise IncusClientException(json_data["error"], **err_params)
         return None
 
     def query_raw(self, method, url, payload=None, url_params=None, ok_errors=None):
@@ -76,18 +82,18 @@ class IncusClient(object):
         Returns the response as a dict.
         """
         url_params = url_params or {}
-        if 'project' not in url_params:
-            url_params['project'] = self.project
-        if 'target' not in url_params and self.target:
-            url_params['target'] = self.target
+        if "project" not in url_params:
+            url_params["project"] = self.project
+        if "target" not in url_params and self.target:
+            url_params["target"] = self.target
 
-        if '?' in url:
-            url = url + '&' + urlencode(url_params)
+        if "?" in url:
+            url = url + "&" + urlencode(url_params)
         else:
-            url = url + '?' + urlencode(url_params)
+            url = url + "?" + urlencode(url_params)
 
         url = ensure_remote(self.remote) + url
-        args = ['query', '-X', method, url, '--wait', '--raw']
+        args = ["query", "-X", method, url, "--wait", "--raw"]
         if self.debug:
             self.logs.append(args)
 
@@ -101,10 +107,14 @@ class IncusClient(object):
 
         return json_data
 
-    def query_raw_checked(self, method, url, payload=None, url_params=None, ok_errors=None):
-        data = self.query_raw(method, url, payload=payload, url_params=url_params, ok_errors=ok_errors)
-        if data.get('status_code', 500) != 200:
-            raise IncusClientException('Failed to create profile', **data)
+    def query_raw_checked(
+        self, method, url, payload=None, url_params=None, ok_errors=None
+    ):
+        data = self.query_raw(
+            method, url, payload=payload, url_params=url_params, ok_errors=ok_errors
+        )
+        if data.get("status_code", 500) != 200:
+            raise IncusClientException("Failed to create profile", **data)
         return data
 
     def _execute(self, *args):
@@ -116,18 +126,18 @@ class IncusClient(object):
             local_cmd.extend(args)
 
         try:
-            local_cmd = [to_bytes(i, errors='surrogate_or_strict') for i in local_cmd]
+            local_cmd = [to_bytes(i, errors="surrogate_or_strict") for i in local_cmd]
 
-            process = Popen(local_cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            process = Popen(local_cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)  # pylint: disable=ansible-bad-function
             stdout, stderr = process.communicate()
 
             stdout = to_text(stdout)
             stderr = to_text(stderr)
         except Exception as e:
             err_params = {}
-            err_params['error'] = e
+            err_params["error"] = e
             if self.debug:
-                err_params['logs'] = self.logs
+                err_params["logs"] = self.logs
             raise IncusClientException(str(e), **err_params)
 
         self._parseErr(process.returncode, stderr)
@@ -137,8 +147,8 @@ class IncusClient(object):
         """Get a profile from Incus.
         Returns the profile as a dict. If the profile does not exist, an empty dict is returned.
         """
-        data = self.query_raw('GET', '/1.0/profiles/{0}'.format(name), ok_errors=[404])
-        data = data.get('metadata', {})
+        data = self.query_raw("GET", "/1.0/profiles/{0}".format(name), ok_errors=[404])
+        data = data.get("metadata", {})
         return data if bool(data) else {}
 
     def profile_exists(self, name):
@@ -150,49 +160,63 @@ class IncusClient(object):
         except IncusClientException:
             return False
 
-    def create_profile(self, name, description='', config=None, devices=None):
+    def create_profile(self, name, description="", config=None, devices=None):
         """Create a profile in Incus.
         Returns True if the profile was created, False otherwise.
         """
-        data = self.query_raw('POST', '/1.0/profiles', {
-            'name': name,
-            'description': description,
-            'config': config,
-            'devices': devices,
-        })
+        data = self.query_raw(
+            "POST",
+            "/1.0/profiles",
+            {
+                "name": name,
+                "description": description,
+                "config": config,
+                "devices": devices,
+            },
+        )
         self._parsErrFromJson(data)
-        if data.get('status_code', 500) != 200:
-            raise IncusClientException('Failed to create profile', **data)
+        if data.get("status_code", 500) != 200:
+            raise IncusClientException("Failed to create profile", **data)
 
-    def update_profile(self, name, description='', config=None, devices=None):
+    def update_profile(self, name, description="", config=None, devices=None):
         """Update a profile in Incus.
         Returns True if the profile was updated, False otherwise.
         """
-        data = self.query_raw('PUT', '/1.0/profiles/{0}'.format(name), {
-            'description': description,
-            'config': config,
-            'devices': devices,
-        })
+        data = self.query_raw(
+            "PUT",
+            "/1.0/profiles/{0}".format(name),
+            {
+                "description": description,
+                "config": config,
+                "devices": devices,
+            },
+        )
         self._parsErrFromJson(data)
-        if data.get('status_code', 500) != 200:
-            raise IncusClientException('Failed to update profile', **data)
+        if data.get("status_code", 500) != 200:
+            raise IncusClientException("Failed to update profile", **data)
 
     def delete_profile(self, name):
         """Delete a profile from Incus."""
-        data = self.query_raw('DELETE', '/1.0/profiles/{0}'.format(name))
+        data = self.query_raw("DELETE", "/1.0/profiles/{0}".format(name))
         self._parsErrFromJson(data)
-        if data.get('status_code', 500) != 200:
-            raise IncusClientException('Failed to delete profile', **data)
+        if data.get("status_code", 500) != 200:
+            raise IncusClientException("Failed to delete profile", **data)
 
-    def list(self, filter=''):
+    def list(self, filter=""):
         """List instances from Incus.
         Returns a list of instances in a dict.
         """
         # syntax: incus list [<remote>:] [<filter>...] [flags]
-        args = ['list', ensure_remote(self.remote)]
+        args = ["list", ensure_remote(self.remote)]
         if filter:
-            args.extend([filter, ]),
-        args.extend(['--project', self.project, '--format', 'json'])
+            (
+                args.extend(
+                    [
+                        filter,
+                    ]
+                ),
+            )
+        args.extend(["--project", self.project, "--format", "json"])
         data = self._execute(*args)
         return json.loads(data)
 
@@ -200,17 +224,21 @@ class IncusClient(object):
         """Get a profile from Incus.
         Returns the profile as a dict. If the profile does not exist, an empty dict is returned.
         """
-        data = self.query_raw('GET', '/1.0/storage-pools/{0}'.format(name), ok_errors=[404])
-        data = data.get('metadata', {})
+        data = self.query_raw(
+            "GET", "/1.0/storage-pools/{0}".format(name), ok_errors=[404]
+        )
+        data = data.get("metadata", {})
         return data if bool(data) else {}
 
 
 class Patch:
     def __init__(self, *, current, supported_fields, patch, next_state):
-        self.prev_state = 'absent' if len(current) == 0 else 'present'
+        self.prev_state = "absent" if len(current) == 0 else "present"
         self.next_state = next_state
         self.before = {k: v for k, v in current.items() if k in supported_fields}
-        self.after = dict_merge(self.before, {k: v for k, v in patch.items() if v is not None})
+        self.after = dict_merge(
+            self.before, {k: v for k, v in patch.items() if v is not None}
+        )
         self.payload = self.after.copy()
         self.before["state"] = self.prev_state
         self.after["state"] = self.next_state
@@ -219,20 +247,24 @@ class Patch:
         self.changed = diff is not None
 
     def is_created(self):
-        return self.next_state == 'present' and self.prev_state == 'absent'
+        return self.next_state == "present" and self.prev_state == "absent"
 
     def is_updated(self):
-        return self.next_state == 'present' and self.prev_state == 'present' and self.changed
+        return (
+            self.next_state == "present"
+            and self.prev_state == "present"
+            and self.changed
+        )
 
     def is_deleted(self):
-        return self.next_state == 'absent' and self.prev_state == 'present'
+        return self.next_state == "absent" and self.prev_state == "present"
 
     def result(self, **extra):
         r = {
-            'changed': self.changed,
-            'before': self.before,
-            'after': self.after,
-            'diff': self.diff,
+            "changed": self.changed,
+            "before": self.before,
+            "after": self.after,
+            "diff": self.diff,
         }
         r.update(extra)
         return r

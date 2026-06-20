@@ -1,0 +1,4 @@
+[tool.ruff.lint]
+# Ansible modules have DOCUMENTATION/EXAMPLES/RETURN docstrings before imports
+# This is the standard Ansible convention, not an error.
+extend-ignore = ["E402"]

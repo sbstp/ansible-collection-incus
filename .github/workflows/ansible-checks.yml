@@ -15,6 +15,28 @@ permissions:
 # please track https://github.com/ansible-collections/news-for-maintainers/issues/28
 
 jobs:
+  "ruff-lint":
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ruff check (linting)
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "check"
+
+  "ruff-format":
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check"
+
   "sanity-and-unit-testing":
     runs-on: ubuntu-24.04
 
@@ -41,7 +63,6 @@ jobs:
       - name: Perform sanity testing with ansible-test
         uses: ansible-community/ansible-test-gh-action@release/v1
         with:
-          # start off with 2.16 and then close in to what https://github.com/ansible-collections/community.general is using
           ansible-core-version: stable-2.20
           testing-type: sanity
           collection-src-directory: kmpm.incus
@@ -52,12 +73,6 @@ jobs:
           ansible-core-version: stable-2.20
           testing-type: units
           collection-src-directory: kmpm.incus
-          # pre-test-cmd: |
-          #   cd ../.. ; pwd ; tree -d
-          # target-python-version: 3.11
-          # test-deps: >-
-          #   ansible.netcommon
-          #   ansible.utils
 
   "integration-testing":
     runs-on: ubuntu-24.04
