@@ -182,7 +182,6 @@ class Connection(ConnectionBase):
         self._ssh_control_path: str | None = None
         self._ssh_control_path_dir: str | None = None
         self._connected = False
-        self._remote_host: str | None = None
         self._incus_cmd = "incus"
 
     # ------------------------------------------------------------------
@@ -197,8 +196,7 @@ class Connection(ConnectionBase):
         self._ssh_control_path_dir = unfrackpath(
             self.get_option("control_path_dir") or "~/.ansible/cp"
         )
-        cpdir = unfrackpath(self._ssh_control_path_dir)
-        makedirs_safe(cpdir, 0o700)
+        makedirs_safe(self._ssh_control_path_dir, 0o700)
 
         # Build a unique hash from the connection parameters
         host = self._get_ssh_host()
@@ -207,7 +205,9 @@ class Connection(ConnectionBase):
         raw = f"{host}-{user}-{port}-{os.getpid()}"
         digest = hashlib.sha256(to_bytes(raw)).hexdigest()[:16]
 
-        self._ssh_control_path = os.path.join(cpdir, f"ansible-ssh-incus-{digest}")
+        self._ssh_control_path = os.path.join(
+            self._ssh_control_path_dir, f"ansible-ssh-incus-{digest}"
+        )
         return self._ssh_control_path
 
     def _get_ssh_user(self) -> str:
@@ -266,7 +266,7 @@ class Connection(ConnectionBase):
         key_file = self.get_option("private_key_file")
         if key_file:
             key_path = os.path.expanduser(key_file)
-            cmd.extend(["-o", f'IdentityFile="{key_path}"'])
+            cmd.extend(["-o", f"IdentityFile={key_path}"])
 
         # User
         if user:
@@ -323,8 +323,13 @@ class Connection(ConnectionBase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            stdout, stderr = proc.communicate(input=in_data)
+            timeout = self.get_option("timeout") or 10
+            stdout, stderr = proc.communicate(input=in_data, timeout=timeout)
             return proc.returncode, stdout, stderr
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            raise AnsibleConnectionFailure(f"SSH command timed out after {timeout}s")
         except OSError as exc:
             raise AnsibleConnectionFailure(f"SSH subprocess failed: {exc}") from exc
 
@@ -368,7 +373,7 @@ class Connection(ConnectionBase):
         )
 
         # Test SSH connectivity + incus availability
-        rc, stdout, stderr = self._run_ssh_incus(["info"])
+        rc, _stdout, stderr = self._run_ssh_incus(["info"])
         if rc != 0:
             raise AnsibleConnectionFailure(
                 f"Cannot reach Incus on remote host {host}: "
@@ -398,8 +403,13 @@ class Connection(ConnectionBase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            stdout, stderr = proc.communicate(input=in_data)
+            timeout = self.get_option("timeout") or 10
+            stdout, stderr = proc.communicate(input=in_data, timeout=timeout)
             return proc.returncode, stdout, stderr
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            raise AnsibleConnectionFailure(f"SSH command timed out after {timeout}s")
         except OSError as exc:
             raise AnsibleConnectionFailure(f"SSH subprocess failed: {exc}") from exc
 
@@ -415,19 +425,21 @@ class Connection(ConnectionBase):
         if os.path.exists(cp):
             try:
                 # Try -O check first to see if it's alive
-                cmd = [self.get_option("ssh_executable") or "ssh"]
-                cmd.extend(["-o", f"ControlPath={cp}"])
-                cmd.extend(["-O", "check", host])
+                check_cmd = [self.get_option("ssh_executable") or "ssh"]
+                check_cmd.extend(["-o", f"ControlPath={cp}"])
+                check_cmd.extend(["-O", "check", host])
                 subprocess.run(
-                    cmd,
+                    check_cmd,
                     capture_output=True,
                     timeout=10,
                     check=False,
                 )
                 # Stop it
-                cmd[cmd.index("-O") + 1] = "stop"
+                stop_cmd = [self.get_option("ssh_executable") or "ssh"]
+                stop_cmd.extend(["-o", f"ControlPath={cp}"])
+                stop_cmd.extend(["-O", "stop", host])
                 subprocess.run(
-                    cmd,
+                    stop_cmd,
                     capture_output=True,
                     timeout=10,
                     check=False,
@@ -550,22 +562,27 @@ class Connection(ConnectionBase):
         """Determine UID and GID of ``remote_user`` inside the container.
 
         Used to set file ownership with ``incus file push --uid/--gid``.
+
+        Bypasses ``exec_command`` (and thus become) so we always query the
+        ``remote_user`` configured for the connection, not the become user.
         """
-        rc, uid_out, err = self.exec_command("/bin/id -u")
+        uid_args = self._build_incus_exec_cmd("/bin/id -u")
+        rc, uid_out, err = self._run_ssh_incus(uid_args)
         if rc != 0:
             raise AnsibleError(
                 f"Failed to get remote uid for user "
                 f"{self.get_option('remote_user')}: {err.decode(errors='replace')}"
             )
 
-        rc, gid_out, err = self.exec_command("/bin/id -g")
+        gid_args = self._build_incus_exec_cmd("/bin/id -g")
+        rc, gid_out, err = self._run_ssh_incus(gid_args)
         if rc != 0:
             raise AnsibleError(
                 f"Failed to get remote gid for user "
                 f"{self.get_option('remote_user')}: {err.decode(errors='replace')}"
             )
 
-        return int(uid_out.strip()), int(gid_out.strip())
+        return int(uid_out.strip().split()[0]), int(gid_out.strip().split()[0])
 
     def put_file(self, in_path: str, out_path: str) -> None:
         """Transfer a file from local to the container.
@@ -627,10 +644,13 @@ class Connection(ConnectionBase):
 
         # Write via the shell: mkdir -p and cat > dest
         # Each argument is separate so incus receives them atomically
-        write_cmd = (
-            f"mkdir -p {shlex.quote(os.path.dirname(out_path))} && "
-            f"cat > {shlex.quote(out_path)}"
-        )
+        parent = os.path.dirname(out_path)
+        if parent:
+            write_cmd = (
+                f"mkdir -p {shlex.quote(parent)} && cat > {shlex.quote(out_path)}"
+            )
+        else:
+            write_cmd = f"cat > {shlex.quote(out_path)}"
         incus_args.extend(["/bin/sh", "-c", write_cmd])
 
         rc, stdout, stderr = self._run_ssh_incus(incus_args, in_data=data)
@@ -682,7 +702,12 @@ class Connection(ConnectionBase):
                     host=container,
                 )
 
-            rc = subprocess.run(scp_cmd, capture_output=True, check=False)
+            rc = subprocess.run(
+                scp_cmd,
+                capture_output=True,
+                check=False,
+                timeout=self.get_option("timeout") or 10,
+            )
             if rc.returncode != 0:
                 raise AnsibleError(
                     f"SCP to remote host failed: {rc.stderr.decode(errors='replace')}"
@@ -810,12 +835,12 @@ class Connection(ConnectionBase):
                 project,
                 "file",
                 "pull",
-                f"{incus_remote}:{container}/{in_path}",
+                f"{incus_remote}:{container}{in_path}",
                 temp_file,
             ]
 
             self._display.vvvv(
-                f"incus file pull {incus_remote}:{container}/{in_path} -> {temp_file}",
+                f"incus file pull {incus_remote}:{container}{in_path} -> {temp_file}",
                 host=container,
             )
 
@@ -844,7 +869,12 @@ class Connection(ConnectionBase):
                     host=container,
                 )
 
-            rc = subprocess.run(scp_cmd, capture_output=True, check=False)
+            rc = subprocess.run(
+                scp_cmd,
+                capture_output=True,
+                check=False,
+                timeout=self.get_option("timeout") or 10,
+            )
             if rc.returncode != 0:
                 raise AnsibleError(
                     f"SCP from remote host failed: {rc.stderr.decode(errors='replace')}"
@@ -870,7 +900,8 @@ class Connection(ConnectionBase):
 
         # Check if user requested a TTY via ssh_common_args
         extra = self.get_option("ssh_common_args") or ""
-        if "-tt" in extra or "-t" in shlex.split(extra):
+        split_args = shlex.split(extra)
+        if "-tt" in split_args or "-t" in split_args:
             return False
 
         return super().is_pipelining_enabled(wrap_async)
