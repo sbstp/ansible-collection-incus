@@ -1,55 +1,9 @@
-# Copyright (c) 2024 Ansible Project
+# Copyright (c) 2026 Simon Bernier St-Pierre
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""
-ssh_incus connection plugin
-
-Combines SSH and Incus to manage containers on a remote host without
-requiring SSH inside the container or exposing the Incus TCP port.
-
-How it works::
-
-    ┌──────────────┐   SSH    ┌──────────────┬──────────────┐
-    │  Controller  │─────── ─>│  Remote Host │  Incus       │
-    │  (your       │  tunnel  │  (bastion)   │  Container   │
-    │  machine)    │          │              │  web-01      │
-    │              │          │  ssh user@   │              │
-    │  ssh_incus   │          │  ─────────── │  incus exec  │
-    │  plugin      │          │  incus file  │  / incus     │
-    │              │          │  push/pull   │  file        │
-    └──────────────┘          └──────────────└──────────────┘
-                                 No open port    No SSHd
-
-The connection chain is:
-
-1. SSH from local machine to remote host (the bastion)
-2. ``incus exec`` / ``incus file`` on the remote host to interact with the
-   container
-
-This means:
-
-* The container needs **no SSH server** running inside it.
-* The Incus daemon's TCP port (8443) does **not** need to be exposed.
-* All standard Ansible modules (``copy``, ``template``, ``package``,
-  ``service``, etc.) work transparently inside the container.
-* Module pipelining is supported for performance.
-"""
-
-from __future__ import annotations
-
-import hashlib
-import os
-import shlex
-import subprocess
-
-from ansible.errors import AnsibleConnectionFailure, AnsibleError, AnsibleFileNotFound
-from ansible.module_utils.common.text.converters import to_bytes, to_native, to_text
-from ansible.plugins.connection import ConnectionBase
-from ansible.utils.path import makedirs_safe, unfrackpath
-
 DOCUMENTATION = r"""
-author: Simon (inspired by community.general.incus)
+author: Simon Bernier St-Pierre (@sbstp)
 name: ssh_incus
 short_description: Run tasks in Incus instances via an SSH bastion host
 description:
@@ -204,6 +158,16 @@ options:
       - name: ansible_host_key_checking
       - name: ansible_ssh_incus_host_key_checking
 """
+
+import hashlib
+import os
+import shlex
+import subprocess
+
+from ansible.errors import AnsibleConnectionFailure, AnsibleError, AnsibleFileNotFound
+from ansible.module_utils.common.text.converters import to_bytes
+from ansible.plugins.connection import ConnectionBase
+from ansible.utils.path import makedirs_safe, unfrackpath
 
 
 class Connection(ConnectionBase):
@@ -413,6 +377,31 @@ class Connection(ConnectionBase):
 
         self._connected = True
         return self
+
+    def _run_ssh(
+        self, cmd: list[str], in_data: bytes | None = None
+    ) -> tuple[int, bytes, bytes]:
+        """Run an arbitrary command on the remote host via SSH.
+
+        Builds::
+
+            ssh [options] remote-host '<cmd>'
+        """
+        ssh_cmd = self._build_ssh_base_command()
+        remote_cmd = shlex.join(cmd)
+        full_cmd = ssh_cmd + [remote_cmd]
+
+        try:
+            proc = subprocess.Popen(
+                full_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            stdout, stderr = proc.communicate(input=in_data)
+            return proc.returncode, stdout, stderr
+        except OSError as exc:
+            raise AnsibleConnectionFailure(f"SSH subprocess failed: {exc}") from exc
 
     def close(self):
         """Shut down the SSH ControlMaster connection and clean up."""
@@ -668,9 +657,7 @@ class Connection(ConnectionBase):
 
         # 1. Create temp dir on remote host
         temp_dir = "/tmp/.ansible_ssh_incus"
-        rc, _, stderr = self._run_ssh_incus(
-            ["exec", container, "--", "mkdir", "-p", temp_dir]
-        )
+        rc, _stdout, stderr = self._run_ssh(["mkdir", "-p", temp_dir])
         if rc != 0:
             raise AnsibleError(
                 f"Failed to create temp dir on remote host: "
@@ -715,7 +702,7 @@ class Connection(ConnectionBase):
 
             incus_args.extend([temp_file, f"{incus_remote}:{container}/{out_path}"])
 
-            rc, _, stderr = self._run_ssh_incus(incus_args)
+            rc, _stdout, stderr = self._run_ssh_incus(incus_args)
             if rc != 0:
                 raise AnsibleError(
                     f"incus file push failed: {stderr.decode(errors='replace')}"
@@ -723,7 +710,7 @@ class Connection(ConnectionBase):
 
         finally:
             # 4. Clean up temp file
-            self._run_ssh_incus(["exec", container, "--", "rm", "-f", temp_file])
+            self._run_ssh(["rm", "-f", temp_file])
 
     def fetch_file(self, in_path: str, out_path: str) -> None:
         """Transfer a file from the container to the local machine.
@@ -807,7 +794,12 @@ class Connection(ConnectionBase):
 
         # 1. Create temp dir on remote host
         temp_dir = "/tmp/.ansible_ssh_incus"
-        self._run_ssh_incus(["exec", container, "--", "mkdir", "-p", temp_dir])
+        rc, _stdout, stderr = self._run_ssh(["mkdir", "-p", temp_dir])
+        if rc != 0:
+            raise AnsibleError(
+                f"Failed to create temp dir on remote host: "
+                f"{stderr.decode(errors='replace')}"
+            )
 
         temp_file = f"{temp_dir}/{os.path.basename(in_path)}.{os.getpid()}"
 
@@ -827,7 +819,7 @@ class Connection(ConnectionBase):
                 host=container,
             )
 
-            rc, _, stderr = self._run_ssh_incus(incus_args)
+            rc, _stdout, stderr = self._run_ssh_incus(incus_args)
             if rc != 0:
                 err_text = stderr.decode(errors="replace").strip()
                 if "not found" in err_text.lower() or "No such file" in err_text:
@@ -860,7 +852,7 @@ class Connection(ConnectionBase):
 
         finally:
             # 4. Clean up temp file on remote host
-            self._run_ssh_incus(["exec", container, "--", "rm", "-f", temp_file])
+            self._run_ssh(["rm", "-f", temp_file])
 
     # ------------------------------------------------------------------
     # Misc
