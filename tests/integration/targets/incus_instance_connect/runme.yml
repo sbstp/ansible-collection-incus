@@ -1,0 +1,54 @@
+---
+- name: Create container
+  hosts: localhost
+  tasks:
+    - name: Pick an instance name
+      ansible.builtin.set_fact:
+        instance_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
+
+    - name: create container
+      kmpm.incus.incus_instance:
+        name: "{{ instance_name }}"
+        wait_for_ipv4_addresses: true
+        source:
+          type: image
+          alias: debian/13/cloud
+          server: "https://images.linuxcontainers.org"
+          protocol: "simplestreams"
+          mode: "pull"
+          allow_inconsistent: false
+
+    - name: Add Container to in/memory inventory
+      ansible.builtin.add_host:
+        name: "{{ instance_name }}"
+        ansible_connection: community.general.incus
+        ansible_user: root
+        ansible_python_interpreter: /usr/bin/python3
+        groups: newly_created_containers
+
+- name: Configure the new Container
+  hosts: newly_created_containers
+  tasks:
+    - name: Install package
+      apt:
+        name: caddy
+        state: present
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert a key exists using the 'in' operator
+      ansible.builtin.assert:
+        that:
+          - "'caddy' in ansible_facts.packages"
+        fail_msg: Caddy was not found in installed packages
+
+- name: Delete container
+  hosts: localhost
+  tasks:
+    - name: delete container
+      kmpm.incus.incus_instance:
+        name: "{{ instance_name }}"
+        state: "absent"
+        force_stop: true
