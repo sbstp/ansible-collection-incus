@@ -20,9 +20,10 @@
 
     - name: Add Container to in/memory inventory
       ansible.builtin.add_host:
+        ansible_connection: kmpm.incus.ssh_incus
         name: "{{ instance_name }}"
         ansible_ssh_incus_host: runner@localhost
-        ansible_connection: kmpm.incus.ssh_incus
+        ansible_ssh_incus_private_key_file: ~/.ssh/id_ansible_test
         ansible_user: root
         ansible_python_interpreter: /usr/bin/python3
         groups: newly_created_containers

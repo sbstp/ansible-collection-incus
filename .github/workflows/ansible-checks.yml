@@ -125,6 +125,8 @@ jobs:
           sudo -u runner sh -c 'cat /home/runner/.ssh/id_ansible_test.pub >> /home/runner/.ssh/authorized_keys'
           chmod 600 /home/runner/.ssh/authorized_keys
 
+      - run: ssh -i ~/.ssh/id_ansible_test -T runner@localhost 'incus info'
+
       - run: |
           python3 -m pip install ansible
           which ansible-test
