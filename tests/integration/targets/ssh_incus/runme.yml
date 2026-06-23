@@ -1,0 +1,342 @@
+---
+- name: Create container
+  hosts: localhost
+  tasks:
+    - name: Pick an instance name
+      ansible.builtin.set_fact:
+        instance_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
+
+    - name: create container
+      kmpm.incus.incus_instance:
+        name: "{{ instance_name }}"
+        wait_for_ipv4_addresses: true
+        source:
+          type: image
+          alias: debian/13/cloud
+          server: "https://images.linuxcontainers.org"
+          protocol: "simplestreams"
+          mode: "pull"
+          allow_inconsistent: false
+
+    - name: Add Container to in/memory inventory
+      ansible.builtin.add_host:
+        ansible_connection: kmpm.incus.ssh_incus
+        name: "{{ instance_name }}"
+        instance_name: "{{ instance_name }}"
+        ansible_ssh_incus_host: runner@localhost
+        ansible_ssh_incus_private_key_file: ~/.ssh/id_ansible_test
+        ansible_user: root
+        ansible_python_interpreter: /usr/bin/python3
+        groups: newly_created_containers
+
+- name: Test basic command execution
+  hosts: newly_created_containers
+  tasks:
+    - name: Run id command
+      ansible.builtin.command:
+        cmd: /usr/bin/id
+      register: id_result
+
+    - name: Assert we are root inside the container
+      ansible.builtin.assert:
+        that:
+          - "'uid=0(root)' in id_result.stdout"
+
+    - name: Run uname to verify environment
+      ansible.builtin.command:
+        cmd: /usr/bin/uname -a
+      register: uname_result
+
+    - name: Assert uname succeeded
+      ansible.builtin.assert:
+        that:
+          - uname_result.rc == 0
+
+    - name: Check container hostname (cloud images may vary)
+      ansible.builtin.command:
+        cmd: /bin/hostname
+      register: hostname_result
+
+    - name: Assert hostname is non-empty
+      ansible.builtin.assert:
+        that:
+          - hostname_result.stdout | length > 0
+
+    - name: Verify Python interpreter works
+      ansible.builtin.command:
+        cmd: /usr/bin/python3 -c "import sys; print(sys.version)"
+      register: python_result
+
+    - name: Assert Python 3 is functional
+      ansible.builtin.assert:
+        that:
+          - python_result.rc == 0
+          - "'3.' in python_result.stdout"
+
+- name: Test package management
+  hosts: newly_created_containers
+  tasks:
+    - name: Install caddy
+      ansible.builtin.apt:
+        name: caddy
+        state: present
+      register: install_result
+
+    - name: Assert installation succeeded
+      ansible.builtin.assert:
+        that:
+          - install_result is success
+          - install_result is changed
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert caddy package is present
+      ansible.builtin.assert:
+        that:
+          - "'caddy' in ansible_facts.packages"
+        fail_msg: Caddy was not found in installed packages
+
+- name: Test service module
+  hosts: newly_created_containers
+  tasks:
+    - name: Start and enable caddy service
+      ansible.builtin.service:
+        name: caddy
+        state: started
+        enabled: true
+
+    - name: Verify caddy is active via shell
+      ansible.builtin.shell:
+        cmd: systemctl is-active caddy
+      register: caddy_active
+      changed_when: false
+
+    - name: Assert caddy is active
+      ansible.builtin.assert:
+        that:
+          - caddy_active.stdout == "active"
+
+    - name: Verify caddy is enabled
+      ansible.builtin.shell:
+        cmd: systemctl is-enabled caddy
+      register: caddy_enabled
+      changed_when: false
+
+    - name: Assert caddy is enabled
+      ansible.builtin.assert:
+        that:
+          - caddy_enabled.stdout == "enabled"
+
+    - name: Stop caddy service
+      ansible.builtin.service:
+        name: caddy
+        state: stopped
+
+    - name: Verify caddy is stopped
+      ansible.builtin.shell:
+        cmd: systemctl is-active caddy
+      register: caddy_stopped
+      changed_when: false
+      failed_when: false
+
+    - name: Assert caddy is inactive
+      ansible.builtin.assert:
+        that:
+          - caddy_stopped.stdout == "inactive"
+
+    - name: Re-start caddy for later tests
+      ansible.builtin.service:
+        name: caddy
+        state: started
+
+- name: Test file module operations
+  hosts: newly_created_containers
+  tasks:
+    - name: Create a directory
+      ansible.builtin.file:
+        path: /opt/test-ssh-incus
+        state: directory
+        mode: "0755"
+
+    - name: Stat the directory
+      ansible.builtin.stat:
+        path: /opt/test-ssh-incus
+      register: dir_stat
+
+    - name: Assert directory exists with correct mode
+      ansible.builtin.assert:
+        that:
+          - dir_stat.stat.exists
+          - dir_stat.stat.isdir
+          - dir_stat.stat.mode == "0755"
+          - dir_stat.stat.pw_name == "root"
+
+- name: Test piped file transfer (default method)
+  hosts: newly_created_containers
+  tasks:
+    - name: Copy a file using piped transfer
+      ansible.builtin.copy:
+        content: "Hello from ssh_incus piped transfer\n"
+        dest: /opt/test-ssh-incus/hello.txt
+        mode: "0644"
+
+    - name: Stat the copied file
+      ansible.builtin.stat:
+        path: /opt/test-ssh-incus/hello.txt
+      register: file_stat
+
+    - name: Assert file exists with correct properties
+      ansible.builtin.assert:
+        that:
+          - file_stat.stat.exists
+          - file_stat.stat.isreg
+          - file_stat.stat.mode == "0644"
+          - file_stat.stat.pw_name == "root"
+
+    - name: Read file content via slurp
+      ansible.builtin.slurp:
+        path: /opt/test-ssh-incus/hello.txt
+      register: slurp_result
+
+    - name: Assert slurped content matches
+      ansible.builtin.assert:
+        that:
+          - (slurp_result.content | b64decode) == "Hello from ssh_incus piped transfer\n"
+
+    - name: Write a Jinja-templated content
+      ansible.builtin.copy:
+        content: |
+          instance_name: {{ instance_name }}
+          transport: piped
+          ansible_managed: true
+        dest: /opt/test-ssh-incus/metadata.yml
+        mode: "0644"
+
+    - name: Stat the templated file
+      ansible.builtin.stat:
+        path: /opt/test-ssh-incus/metadata.yml
+      register: tpl_stat
+
+    - name: Assert templated file exists
+      ansible.builtin.assert:
+        that:
+          - tpl_stat.stat.exists
+          - tpl_stat.stat.mode == "0644"
+
+    - name: Fetch a file from the container (fetch_file piped)
+      ansible.builtin.fetch:
+        src: /opt/test-ssh-incus/hello.txt
+        dest: /tmp/fetched-{{ instance_name }}/
+        flat: true
+
+    - name: Stat the fetched file locally
+      ansible.builtin.stat:
+        path: /tmp/fetched-{{ instance_name }}/hello.txt
+      delegate_to: localhost
+      register: fetch_stat
+
+    - name: Assert fetched file exists
+      ansible.builtin.assert:
+        that:
+          - fetch_stat.stat.exists
+          - fetch_stat.stat.isreg
+
+- name: Test temp file transfer method
+  hosts: newly_created_containers
+  vars:
+    ansible_ssh_incus_file_transfer_method: temp
+  tasks:
+    - name: Create test directory for temp method
+      ansible.builtin.file:
+        path: /opt/test-ssh-incus-temp
+        state: directory
+        mode: "0755"
+
+    - name: Copy file via temp method (SCP + incus file push)
+      ansible.builtin.copy:
+        content: "Hello from ssh_incus temp transfer\n"
+        dest: /opt/test-ssh-incus-temp/hello-temp.txt
+        mode: "0644"
+
+    - name: Stat the temp-transferred file
+      ansible.builtin.stat:
+        path: /opt/test-ssh-incus-temp/hello-temp.txt
+      register: temp_stat
+
+    - name: Assert temp transfer file exists correctly
+      ansible.builtin.assert:
+        that:
+          - temp_stat.stat.exists
+          - temp_stat.stat.isreg
+          - temp_stat.stat.mode == "0644"
+
+    - name: Fetch a file using temp method (incus file pull + SCP)
+      ansible.builtin.fetch:
+        src: /opt/test-ssh-incus-temp/hello-temp.txt
+        dest: /tmp/fetched-temp-{{ instance_name }}/
+        flat: true
+
+    - name: Stat the temp-fetched file locally
+      ansible.builtin.stat:
+        path: /tmp/fetched-temp-{{ instance_name }}/hello-temp.txt
+      delegate_to: localhost
+      register: temp_fetch_stat
+
+    - name: Assert temp-fetched file exists
+      ansible.builtin.assert:
+        that:
+          - temp_fetch_stat.stat.exists
+
+- name: Test idempotency (same package install)
+  hosts: newly_created_containers
+  tasks:
+    - name: Install caddy again (idempotency check)
+      ansible.builtin.apt:
+        name: caddy
+        state: present
+      register: idempotent_install
+
+    - name: Assert installation is idempotent (not changed)
+      ansible.builtin.assert:
+        that:
+          - idempotent_install is success
+          - not idempotent_install is changed
+
+    - name: Create same directory again (idempotency)
+      ansible.builtin.file:
+        path: /opt/test-ssh-incus
+        state: directory
+        mode: "0755"
+      register: idempotent_dir
+
+    - name: Assert directory creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - idempotent_dir is success
+          - not idempotent_dir is changed
+
+- name: Cleanup container and local files
+  hosts: localhost
+  tasks:
+    - name: Delete container
+      kmpm.incus.incus_instance:
+        name: "{{ instance_name }}"
+        state: "absent"
+        force_stop: true
+      register: delete_result
+
+    - name: Assert container was deleted
+      ansible.builtin.assert:
+        that:
+          - delete_result is success
+
+    - name: Clean up fetched files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/fetched-{{ instance_name }}
+        - /tmp/fetched-temp-{{ instance_name }}
+      ignore_errors: true
