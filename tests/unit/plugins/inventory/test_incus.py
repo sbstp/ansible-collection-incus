@@ -5,7 +5,7 @@
 
 import pytest
 from ansible.inventory.data import InventoryData
-from ansible_collections.kmpm.incus.plugins.inventory.incus import InventoryModule
+from ansible_collections.sbstp.incus.plugins.inventory.incus import InventoryModule
 
 HOST_COMPARATIVE_DATA = {
     "ansible_connection": "community.general.incus",

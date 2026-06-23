@@ -55,14 +55,15 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Create a profile
-      kmpm.incus.incus_profile:
+      sbstp.incus.incus_profile:
         name: my-profile
         description: My profile
 """
 
 import json
+
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
     IncusClientException,
 )

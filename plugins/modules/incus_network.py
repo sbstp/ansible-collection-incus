@@ -61,7 +61,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Get all networks
-      kmpm.incus.incus_network:
+      sbstp.incus.incus_network:
         name: testnet0
         config:
             ipv4.address: "192.168.171.1/24"
@@ -71,11 +71,10 @@ EXAMPLES = """
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
     IncusClientException,
 )
-
 
 INCUS_ANSIBLE_STATES = {
     "present": "_created",

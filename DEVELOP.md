@@ -5,7 +5,7 @@
 mkdir ansible_collections
 
 # checkout this repository to an appropriate location
-git clone https://github.com/kmpm/ansible-collection-incus.git ansible_collection/kmpm/incus
+git clone https://github.com/sbstp/ansible-collection-incus.git ansible_collection/sbstp/incus
 
 # check out any other collections that we are depending upon
 git clone https://github.com/ansible-collections/community.general.git ansible_collections/community/general
@@ -38,11 +38,11 @@ collections_path = ansible_collections
 ```shell
 # Does ansible recognize the inventory plugin
 $ ansible-doc -t inventory -l | grep incus
-kmpm.incus.incus                                        Incus inventory sou...
+sbstp.incus.incus                                        Incus inventory sou...
 
 # Does it recognize the instance module
 $ ansible-doc -t module -l | grep incus
-kmpm.incus.incus_instance 
+sbstp.incus.incus_instance
 
 ```
 

@@ -4,13 +4,14 @@
 
 
 from unittest.mock import patch
+
 from ansible.module_utils import basic
-from ansible_collections.kmpm.incus.plugins.modules import incus_instance
 from ansible_collections.community.general.tests.unit.plugins.modules.utils import (
     AnsibleExitJson,
     ModuleTestCase,
     set_module_args,
 )
+from ansible_collections.sbstp.incus.plugins.modules import incus_instance
 
 from .clients import MockClient
 
@@ -26,11 +27,11 @@ def fake_bin_path(arg1):
 
 
 @patch(
-    "ansible_collections.kmpm.incus.plugins.module_utils.incuscli.get_bin_path",
+    "ansible_collections.sbstp.incus.plugins.module_utils.incuscli.get_bin_path",
     fake_bin_path,
 )
 @patch(
-    "ansible_collections.kmpm.incus.plugins.modules.incus_instance.IncusClient._execute",
+    "ansible_collections.sbstp.incus.plugins.modules.incus_instance.IncusClient._execute",
     mock_execute,
 )
 class IncusInstanceTestCase(ModuleTestCase):
@@ -41,7 +42,7 @@ class IncusInstanceTestCase(ModuleTestCase):
         # ansible-core 2.20+ requires _ANSIBLE_PROFILE to be set
         self.mock_profile = patch.object(basic, "_ANSIBLE_PROFILE", "legacy")
         self.mock_profile.start()
-        ansible_module_path = "ansible_collections.kmpm.incus.plugins.modules.incus_instance.AnsibleModule"
+        ansible_module_path = "ansible_collections.sbstp.incus.plugins.modules.incus_instance.AnsibleModule"
         self.mock_run_command = patch("%s.run_command" % ansible_module_path)
         self.module_main_command = self.mock_run_command.start()
 

@@ -1,30 +1,25 @@
-# Ansible Collection - kmpm.incus
+# Ansible Collection - sbstp.incus
 
-This repository contains the `kmpm.incus` collection.
-This is a collection of ansible modules and such that enables creation of for example
-incus instances.
+This repository contains the `sbstp.incus` collection.
+It is a collection of ansible modules that enable the creation of incus instances,
+storage pools, networks and more.
 
-The goal for this collection is to eventually be incorporated
-into Ansibles community.general collection.
+It also includes a special `ssh_incus` connection module that allows incus instances
+to run ansible tasks on a remote host via SSH. It means that the SSH server acts
+essentially as a jump host for the incus instance. No need to expose the incus admin
+API publicly, and no need to install a SSH server in the instance.
 
-The connection module for incus is already included in the
-`community.general.incus` and is not included here.
+> [!NOTE]
+> This repository is forked from https://github.com/kmpm/ansible-collection-incus
 
-## Disclaimer
-
-It is very much a Work In Progress and contains bugs, missing features etc.
-It might destroy everything on your machine (unlikely) and delete everyting
-in incus (somewhat likely). It will eventually be strict about semver versioning
-but for now, every change could be a breaking one.
-
-My available time to work on this project will be limited but I will gladly accept
-pull requests that I find reasonable.
+> [!WARNING]
+> This fork sometimes uses LLM assistance to develop and debug features.
+> The features are tested with integration tests but the collection itself has not been battle tested by many people yet.
+> If using software developed with the help of LLMs is against your values, that's ok. This warning is here to not misrepresent the nature of this work and let you decide for yourself.
 
 ## Tested with Ansible
 
-This collection is currently only tested with core-2.16 and python 3.11.
-It might be extended to support older versions but currently there are only some
-python >3.7 code used.
+This collection is currently only tested with core-2.20 and Python 3.13+.
 
 ## External requirements
 
@@ -35,10 +30,10 @@ This means `incus > 0.6.0`.
 ## Using this collection
 
 The collection is not yet published in Ansible Galaxy but can be installed with
-`ansible-galaxy` and using the [git repository](https://github.com/kmpm/ansible-collection-incus).
+`ansible-galaxy` and using the [git repository](https://github.com/sbstp/ansible-collection-incus).
 
 ```shell
-ansible-galaxy collection install git+https://github.com/kmpm/ansible-collection-incus.git
+ansible-galaxy collection install git+https://github.com/sbstp/ansible-collection-incus.git
 ```
 
 ### Modules
@@ -90,13 +85,13 @@ ansible-galaxy collection install git+https://github.com/kmpm/ansible-collection
 WIP: There is an inventory module but it has limited documentation and not 
 everything planed is complete or implemented.
 
-Get the existing help with `ansible-doc -t inventory kmpm.incus.incus`
+Get the existing help with `ansible-doc -t inventory sbstp.incus.incus`
 
 To use create a file that ends with `incus.yml` or `incus.yaml`
 
 ```yaml
 ---
-plugin: kmpm.incus.incus
+plugin: sbstp.incus.incus
 
 ```
 
