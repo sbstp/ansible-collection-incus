@@ -11,8 +11,8 @@ short_description: Get information about incus networks
 description:
   - Get information about incus networks
 extends_documentation_fragment:
-  - kmpm.incus.attributes
-  - kmpm.incus.attributes.info_module
+  - sbstp.incus.attributes
+  - sbstp.incus.attributes.info_module
 options:
     name:
         description:
@@ -39,7 +39,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Get all networks
-      kmpm.incus.incus_network_info:
+      sbstp.incus.incus_network_info:
         project: default
         register: networks
 
@@ -73,7 +73,7 @@ network_info:
 
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
     IncusClientException,
 )

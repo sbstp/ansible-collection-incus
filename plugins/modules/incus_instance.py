@@ -13,7 +13,7 @@ description:
   - Management of Incus containers and virtual machines.
 author: "Hiroaki Nakamura (@hnakamur)"
 extends_documentation_fragment:
-  - kmpm.incus.attributes
+  - sbstp.incus.attributes
 attributes:
     check_mode:
         support: full
@@ -63,7 +63,7 @@ options:
           - If set to V(true), options starting with C(volatile.) are ignored. As a result,
             they are reapplied for each execution.
           - This default behavior can be changed by setting this option to V(false).
-          - The default value changed from V(true) to V(false) in kmpm.incus 6.0.0.
+          - The default value changed from V(true) to V(false) in sbstp.incus 6.0.0.
         type: bool
         required: false
         default: false
@@ -162,7 +162,7 @@ notes:
     be done with the command module.
   - You can copy a file from the host to the instance
     with the Ansible M(ansible.builtin.copy) and M(ansible.builtin.template) module
-    and the P(kmpm.incus.incus#connection) connection plugin.
+    and the P(sbstp.incus.incus#connection) connection plugin.
     See the example below.
   - You can copy a file in the created instance to the localhost
     with C(command=incus file pull instance_name/dir/filename filename).
@@ -175,7 +175,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Create a started container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: mycontainer
         ignore_volatile_options: true
         state: started
@@ -206,7 +206,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Create a started container in project mytestproject
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: mycontainer
         project: mytestproject
         ignore_volatile_options: true
@@ -226,7 +226,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Delete a container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: mycontainer
         state: absent
         type: container
@@ -236,7 +236,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Restart a container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: mycontainer
         state: restarted
         type: container
@@ -246,7 +246,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Restart a container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         url: https://127.0.0.1:8443
         # These client_cert and client_key values are equal to the default values.
         #client_cert: "{{ lookup('env', 'HOME') }}/.config/incus/client.crt"
@@ -276,7 +276,7 @@ EXAMPLES = """
 - hosts: node01.example.com
   tasks:
     - name: Create Incus container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: new-container-1
         ignore_volatile_options: true
         state: started
@@ -287,7 +287,7 @@ EXAMPLES = """
         target: node01
 
     - name: Create container on another node
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: new-container-2
         ignore_volatile_options: true
         state: started
@@ -302,7 +302,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Create container on another node
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: new-vm-1
         type: vm
         state: started
@@ -345,7 +345,7 @@ import datetime
 import time
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
     IncusClientException,
 )

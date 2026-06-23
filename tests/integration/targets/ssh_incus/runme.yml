@@ -7,7 +7,7 @@
         instance_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
 
     - name: create container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: "{{ instance_name }}"
         wait_for_ipv4_addresses: true
         source:
@@ -20,7 +20,7 @@
 
     - name: Add Container to in/memory inventory
       ansible.builtin.add_host:
-        ansible_connection: kmpm.incus.ssh_incus
+        ansible_connection: sbstp.incus.ssh_incus
         name: "{{ instance_name }}"
         instance_name: "{{ instance_name }}"
         ansible_ssh_incus_host: runner@localhost
@@ -321,7 +321,7 @@
   hosts: localhost
   tasks:
     - name: Delete container
-      kmpm.incus.incus_instance:
+      sbstp.incus.incus_instance:
         name: "{{ instance_name }}"
         state: "absent"
         force_stop: true

@@ -54,7 +54,7 @@ EXAMPLES = """
   connection: local
   tasks:
     - name: Create a storage pool
-      kmpm.incus.incus_storage:
+      sbstp.incus.incus_storage:
         name: tank
         description: tank
         driver: btrfs
@@ -64,7 +64,7 @@ EXAMPLES = """
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import (
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
     Patch,
 )

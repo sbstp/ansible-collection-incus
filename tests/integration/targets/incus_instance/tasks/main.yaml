@@ -1,6 +1,6 @@
 ---
 - name: create container
-  kmpm.incus.incus_instance:
+  sbstp.incus.incus_instance:
     name: mycontainer
     source:
       type: image
@@ -12,13 +12,13 @@
   register: create_result
 
 - name: destroy container
-  kmpm.incus.incus_instance:
+  sbstp.incus.incus_instance:
     name: mycontainer
     state: absent
   register: destroy_result
 
 - name: create vm
-  kmpm.incus.incus_instance:
+  sbstp.incus.incus_instance:
     name: myvm
     type: virtual-machine
     source:
@@ -42,7 +42,7 @@
 # >0 processes
 
 - name: Get a specific instance
-  kmpm.incus.incus_instance_info:
+  sbstp.incus.incus_instance_info:
     name: mymv
   register: instance
 
@@ -51,12 +51,12 @@
     var: instance
 
 - name: stop vm
-  kmpm.incus.incus_instance:
+  sbstp.incus.incus_instance:
     name: myvm
     state: stopped
 
 - name: destroy vm
-  kmpm.incus.incus_instance:
+  sbstp.incus.incus_instance:
     name: myvm
     state: absent
   register: destroy_vm_result

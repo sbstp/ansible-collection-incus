@@ -44,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          path: kmpm.incus
+          path: sbstp.incus
 
       # https://github.com/ansible/ansible/issues/72634
       - name: Checkout community.general dependency
@@ -65,14 +65,14 @@ jobs:
         with:
           ansible-core-version: stable-2.20
           testing-type: sanity
-          collection-src-directory: kmpm.incus
+          collection-src-directory: sbstp.incus
 
       - name: Perform unit testing with ansible-test
         uses: ansible-community/ansible-test-gh-action@release/v1
         with:
           ansible-core-version: stable-2.20
           testing-type: units
-          collection-src-directory: kmpm.incus
+          collection-src-directory: sbstp.incus
 
   "integration-testing":
     runs-on: ubuntu-24.04
@@ -80,7 +80,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          path: ansible_collections/kmpm/incus
+          path: ansible_collections/sbstp/incus
 
       - name: Install Incus (Zabbly Repository)
         run: |
@@ -131,4 +131,4 @@ jobs:
 
       # `sudo -u runner` is necessary to execute with the new group membership
       - run: sudo -E -u runner /home/runner/.local/bin/ansible-test integration --allow-unsupported ssh_incus
-        working-directory: ansible_collections/kmpm/incus
+        working-directory: ansible_collections/sbstp/incus

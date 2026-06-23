@@ -15,7 +15,7 @@ DOCUMENTATION = r"""
       plugin:
         description: Name of the plugin
         required: true
-        choices: ['kmpm.incus.incus']
+        choices: ['sbstp.incus.incus']
       remote:
         description: The remote to use for the Incus CLI.
         default: local
@@ -49,10 +49,10 @@ DOCUMENTATION = r"""
 
 EXAMPLES = r"""
 # Example minimal inventory file incus.yml
-plugin: kmpm.incus.incus
+plugin: sbstp.incus.incus
 
 # Example inventory file incus.yml default options
-plugin: kmpm.incus.incus
+plugin: sbstp.incus.incus
 remote: local
 project_filter: all
 type_filter: all
@@ -60,13 +60,14 @@ status_filter: running
 prefered_instance_network_family: inet
 """
 
-import traceback
 import re
+import traceback
+
 from ansible.errors import AnsibleError, AnsibleParserError
 from ansible.module_utils.common.text.converters import to_native, to_text
 from ansible.module_utils.common.yaml import yaml_load
 from ansible.plugins.inventory import BaseInventoryPlugin, Cacheable, Constructable
-from ansible_collections.kmpm.incus.plugins.module_utils.incuscli import IncusClient
+from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import IncusClient
 
 try:
     from yaml.scanner import ScannerError
@@ -88,7 +89,7 @@ else:
 
 
 class InventoryModule(BaseInventoryPlugin, Cacheable, Constructable):
-    NAME = "kmpm.incus.incus"
+    NAME = "sbstp.incus.incus"
     DEBUG = 4
 
     def __init__(self):

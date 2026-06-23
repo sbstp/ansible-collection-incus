@@ -2,7 +2,7 @@
 # The namespace of the collection. This can be a company/brand/organization or product namespace under which all
 # content lives. May only contain alphanumeric lowercase characters and underscores. Namespaces cannot start with
 # underscores or numbers and cannot contain consecutive underscores
-namespace: kmpm
+namespace: sbstp
 
 # The name of the collection. Has the same character restrictions as 'namespace'
 name: incus
@@ -16,8 +16,8 @@ readme: README.md
 # A list of the collection's content authors. Can be just the name or in the format 'Full Name <email> (url)
 # @nicks:irc/im.site#channel'
 authors:
-- Peter Magnusson <me@kmpm.se>
-
+  - Peter Magnusson <me@kmpm.se>
+  - Simon Bernier St-Pierre <git.sbstp.ca@gmail.com>
 
 ### OPTIONAL but strongly recommended
 # A short summary description of the collection
@@ -26,11 +26,11 @@ description: Collection of Ansible plugins for dealing with Incus from Linuxcont
 # Either a single license or a list of licenses for content inside of a collection. Ansible Galaxy currently only
 # accepts L(SPDX,https://spdx.org/licenses/) licenses. This key is mutually exclusive with 'license_file'
 license:
-- GPL-3.0-or-later
+  - GPL-3.0-or-later
 
 # The path to the license file for the collection. This path is relative to the root of the collection. This key is
 # mutually exclusive with 'license'
-license_file: 'COPYING'
+license_file: "COPYING"
 
 # A list of tags you want to associate with the collection for indexing/searching. A tag name has the same character
 # requirements as 'namespace' and 'name'
@@ -40,21 +40,19 @@ tags: []
 # collection label 'namespace.name'. The value is a version range
 # L(specifiers,https://python-semanticversion.readthedocs.io/en/latest/#requirement-specification). Multiple version
 # range specifiers can be set and are separated by ','
-dependencies: {
-  "community.general": "*"
-}
+dependencies: { "community.general": "*" }
 
 # The URL of the originating SCM repository
-repository: http://github.com/kmpm/ansible-collection-incus
+repository: http://github.com/sbstp/ansible-collection-incus
 
 # The URL to any online docs
-documentation: https://github.com/kmpm/ansible-collection-incus/wiki
+documentation: https://github.com/sbstp/ansible-collection-incus/wiki
 
 # The URL to the homepage of the collection/project
-homepage: http://github.com/kmpm/ansible-collection-incus
+homepage: http://github.com/sbstp/ansible-collection-incus
 
 # The URL to the collection issue tracker
-issues: http://github.com/kmpm/ansible-collection-incus/issues
+issues: http://github.com/sbstp/ansible-collection-incus/issues
 
 # A list of file glob-like patterns used to filter any files or directories that should not be included in the build
 # artifact. A pattern is matched from the relative path of the file or directory of the collection directory. This

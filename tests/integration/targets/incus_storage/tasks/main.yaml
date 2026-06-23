@@ -4,7 +4,7 @@
     storage_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
 
 - name: Create storage without driver
-  kmpm.incus.incus_storage:
+  sbstp.incus.incus_storage:
     name: "{{ storage_name }}"
     config:
       size: 1GiB
@@ -13,7 +13,7 @@
   register: create_result_with_driver
 
 - name: Create storage
-  kmpm.incus.incus_storage:
+  sbstp.incus.incus_storage:
     name: "{{ storage_name }}"
     description: foobar
     driver: lvm
@@ -23,7 +23,7 @@
   register: create_result
 
 - name: Update storage with driver
-  kmpm.incus.incus_storage:
+  sbstp.incus.incus_storage:
     name: "{{ storage_name }}"
     description: "{{ storage_name }}.updated"
     driver: dir
@@ -31,7 +31,7 @@
   register: update_result_with_driver
 
 - name: Update storage
-  kmpm.incus.incus_storage:
+  sbstp.incus.incus_storage:
     name: "{{ storage_name }}"
     description: "{{ storage_name }}.updated"
     config:
@@ -39,7 +39,7 @@
   register: update_result
 
 - name: Destroy storage
-  kmpm.incus.incus_storage:
+  sbstp.incus.incus_storage:
     name: "{{ storage_name }}"
     state: absent
   register: destroy_result
