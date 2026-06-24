@@ -7,7 +7,7 @@ import json
 import re
 from subprocess import Popen, PIPE
 from ansible.module_utils.common.process import get_bin_path
-from ansible.module_utils._text import to_bytes, to_text
+from ansible.module_utils.common.text.converters import to_bytes, to_text
 from urllib.parse import urlencode
 from ansible.module_utils.common.dict_transformations import dict_merge, recursive_diff
 
