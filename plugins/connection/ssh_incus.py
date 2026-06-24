@@ -119,7 +119,7 @@ class Connection(SSHConnection):
                 host=self._instance_name(),
             )
 
-        return super().exec_command(self, cmd, in_data=in_data, sudoable=False)
+        return super().exec_command(cmd, in_data=in_data, sudoable=False)
 
     # ------------------------------------------------------------------
     # Command execution inside the container
@@ -347,9 +347,7 @@ class Connection(SSHConnection):
 
         finally:
             # 3. Clean up temp file
-            super().exec_command(
-                self, f"rm -f {shlex.quote(temp_file)}", sudoable=False
-            )
+            super().exec_command(f"rm -f {shlex.quote(temp_file)}", sudoable=False)
 
     # ------------------------------------------------------------------
     # fetch_file
@@ -453,10 +451,8 @@ class Connection(SSHConnection):
 
             # 2. Transfer bastion -> local via the SSH plugin's fetch_file.
             #    The parent handles SCP/SFTP/piped, keys, ports, ControlPath.
-            super().fetch_file(self, temp_file, out_path)
+            super().fetch_file(temp_file, out_path)
 
         finally:
             # 3. Clean up temp file on remote host
-            super().exec_command(
-                self, f"rm -f {shlex.quote(temp_file)}", sudoable=False
-            )
+            super().exec_command(f"rm -f {shlex.quote(temp_file)}", sudoable=False)
