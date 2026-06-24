@@ -119,7 +119,7 @@ class Connection(SSHConnection):
                 host=self._instance_name(),
             )
 
-        return SSHConnection.exec_command(self, cmd, in_data=in_data, sudoable=False)
+        return super().exec_command(cmd, in_data=in_data, sudoable=False)
 
     # ------------------------------------------------------------------
     # Command execution inside the container
@@ -162,10 +162,6 @@ class Connection(SSHConnection):
         If *sudoable* is ``True`` and become is enabled, the command runs
         in the become context inside the container.
         """
-        # Call ConnectionBase (not SSHConnection) for bookkeeping only.
-        # The actual SSH execution happens in _run_incus() below.
-        super(SSHConnection, self).exec_command(cmd, in_data=in_data, sudoable=sudoable)
-
         # Incorporate become if needed (inside the container, not on the SSH host)
         if sudoable and self.become:
             cmd = self.become.build_become_command(cmd, self._shell)
@@ -251,8 +247,6 @@ class Connection(SSHConnection):
           then use ``incus file push`` to copy it into the container with
           correct ownership and permissions.
         """
-        super(SSHConnection, self).put_file(in_path, out_path)
-
         if not os.path.isfile(to_bytes(in_path, errors="surrogate_or_strict")):
             raise AnsibleFileNotFound(f"input path is not a file: {in_path}")
 
@@ -329,7 +323,7 @@ class Connection(SSHConnection):
             # 1. Transfer local -> bastion via the SSH plugin's put_file.
             #    The parent handles SCP/SFTP/piped, keys, ports, ControlPath
             #    — everything we'd otherwise have to reimplement.
-            SSHConnection.put_file(self, in_path, temp_file)
+            super().put_file(in_path, temp_file)
 
             # 2. incus file push from temp path into container
             incus_args = [
@@ -353,9 +347,7 @@ class Connection(SSHConnection):
 
         finally:
             # 3. Clean up temp file
-            SSHConnection.exec_command(
-                self, f"rm -f {shlex.quote(temp_file)}", sudoable=False
-            )
+            super().exec_command(f"rm -f {shlex.quote(temp_file)}", sudoable=False)
 
     # ------------------------------------------------------------------
     # fetch_file
@@ -372,8 +364,6 @@ class Connection(SSHConnection):
         * ``temp``: Use ``incus file pull`` to a temp location on the remote
           host, then SCP it back locally.
         """
-        super(SSHConnection, self).fetch_file(in_path, out_path)
-
         self._display.vvv(
             f"FETCH {self._instance_name()}:{in_path} TO {out_path}",
             host=self._instance_name(),
@@ -461,18 +451,8 @@ class Connection(SSHConnection):
 
             # 2. Transfer bastion -> local via the SSH plugin's fetch_file.
             #    The parent handles SCP/SFTP/piped, keys, ports, ControlPath.
-            SSHConnection.fetch_file(self, temp_file, out_path)
+            super().fetch_file(temp_file, out_path)
 
         finally:
             # 3. Clean up temp file on remote host
-            SSHConnection.exec_command(
-                self, f"rm -f {shlex.quote(temp_file)}", sudoable=False
-            )
-
-    # ------------------------------------------------------------------
-    # Misc
-    # ------------------------------------------------------------------
-
-    def reset(self) -> None:
-        """Force-close the persistent connection."""
-        super().reset()
+            super().exec_command(f"rm -f {shlex.quote(temp_file)}", sudoable=False)

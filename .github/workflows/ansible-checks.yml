@@ -130,5 +130,5 @@ jobs:
           which ansible-test
 
       # `sudo -u runner` is necessary to execute with the new group membership
-      - run: sudo -E -u runner /home/runner/.local/bin/ansible-test integration --allow-unsupported ssh_incus -vvv
+      - run: sudo -E -u runner /home/runner/.local/bin/ansible-test integration --allow-unsupported -vvv
         working-directory: ansible_collections/sbstp/incus
