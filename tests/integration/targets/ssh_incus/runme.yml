@@ -20,13 +20,14 @@
 
     - name: Add Container to in/memory inventory
       ansible.builtin.add_host:
-        ansible_connection: sbstp.incus.ssh_incus
         name: "{{ instance_name }}"
-        instance_name: "{{ instance_name }}"
-        ansible_ssh_incus_host: runner@localhost
-        ansible_ssh_incus_private_key_file: ~/.ssh/id_ansible_test
-        ansible_user: root
+        ansible_connection: sbstp.incus.ssh_incus
+        ansible_user: runner
+        ansible_host: localhost
+        ansible_private_key_file: ~/.ssh/id_ansible_test
         ansible_python_interpreter: /usr/bin/python3
+        sbstp_incus_instance: "{{ instance_name }}"
+        instance_name: "{{ instance_name }}"
         groups: newly_created_containers
 
 - name: Test basic command execution
