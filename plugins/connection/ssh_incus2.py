@@ -90,7 +90,6 @@ class Connection(SSHConnection):
     def __init__(self, play_context, new_stdin, *args, **kwargs):
         super().__init__(play_context, new_stdin, *args, **kwargs)
         self._incus_cmd = "incus"
-        self._incus_verified = False
 
     # ------------------------------------------------------------------
     # Instance helpers
@@ -99,40 +98,6 @@ class Connection(SSHConnection):
     def _instance_name(self) -> str:
         """Return the Incus instance (container/VM) name."""
         return self.get_option("incus_instance")
-
-    # ------------------------------------------------------------------
-    # Connection lifecycle
-    # ------------------------------------------------------------------
-
-    def _connect(self):
-        """Open the SSH connection and verify Incus is reachable."""
-        super()._connect()
-
-        if self._incus_verified:
-            return
-
-        self._display.vvv(
-            f"ESTABLISH SSH_INCUS2 CONNECTION FOR INSTANCE: "
-            f"{self._instance_name()} "
-            f"(incus user={self.get_option('incus_user')})",
-            host=self._instance_name(),
-        )
-
-        # Test incus availability on the remote host.
-        # This also triggers the parent's lazy SSH connection setup
-        # (ControlPath, etc.) so self.control_path is available afterwards.
-        rc, _stdout, stderr = self._run_incus(["info"])
-        if rc != 0:
-            raise AnsibleConnectionFailure(
-                f"Cannot reach Incus on remote host: {stderr.decode(errors='replace')}"
-            )
-
-        self._incus_verified = True
-
-    def close(self):
-        """Close the SSH connection."""
-        self._incus_verified = False
-        super().close()
 
     # ------------------------------------------------------------------
     # Incus command execution over SSH
