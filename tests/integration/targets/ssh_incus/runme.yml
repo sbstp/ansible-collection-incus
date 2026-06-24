@@ -21,7 +21,7 @@
     - name: Add Container to in/memory inventory
       ansible.builtin.add_host:
         name: "{{ instance_name }}"
-        ansible_connection: sbstp.incus.ssh_incus2
+        ansible_connection: sbstp.incus.ssh_incus
         ansible_user: runner
         ansible_host: localhost
         ansible_private_key_file: ~/.ssh/id_ansible_test
