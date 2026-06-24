@@ -16,10 +16,9 @@ description:
     work transparently inside the container.
   - All SSH options (host, port, user, key, ControlMaster, etc.) are
     inherited from the C(ssh) plugin and work as usual.
-  - See the SSH options at https://docs.ansible.com/projects/ansible/latest/collections/ansible/builtin/ssh_connection.html
+    See https://docs.ansible.com/projects/ansible/latest/collections/ansible/builtin/ssh_connection.html for details.
 version_added: "1.0.0"
-extends_documentation_fragment:
-  - ansible.builtin.ssh
+extends_documentation_fragment: sbstp.incus.ssh_docs
 options:
   incus_instance:
     description:
