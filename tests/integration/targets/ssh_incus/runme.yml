@@ -22,11 +22,11 @@
       ansible.builtin.add_host:
         name: "{{ instance_name }}"
         ansible_connection: sbstp.incus.ssh_incus2
-        ansible_incus_instance: "{{ instance_name }}"
-        ansible_ssh_host: runner@localhost
-        ansible_ssh_private_key_file: ~/.ssh/id_ansible_test
-        ansible_user: root
+        ansible_user: runner
+        ansible_host: localhost
+        ansible_private_key_file: ~/.ssh/id_ansible_test
         ansible_python_interpreter: /usr/bin/python3
+        ansible_incus_instance: "{{ instance_name }}"
         groups: newly_created_containers
 
 - name: Test basic command execution
