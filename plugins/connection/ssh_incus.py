@@ -323,9 +323,7 @@ class Connection(SSHConnection):
         incus_remote = self.get_option("incus_remote")
 
         # Unique temp file on the remote host
-        temp_file = (
-            f"/tmp/.ansible_ssh_incus/{os.path.basename(in_path)}.{os.getpid()}"
-        )
+        temp_file = f"/tmp/.ansible_ssh_incus/{os.path.basename(in_path)}.{os.getpid()}"
 
         try:
             # 1. Transfer local -> bastion via the SSH plugin's put_file.
@@ -436,9 +434,7 @@ class Connection(SSHConnection):
         project = self.get_option("incus_project")
         incus_remote = self.get_option("incus_remote")
 
-        temp_file = (
-            f"/tmp/.ansible_ssh_incus/{os.path.basename(in_path)}.{os.getpid()}"
-        )
+        temp_file = f"/tmp/.ansible_ssh_incus/{os.path.basename(in_path)}.{os.getpid()}"
 
         try:
             # 1. incus file pull: container -> bastion temp
