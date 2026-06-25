@@ -5,11 +5,12 @@
 
 import json
 import re
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
+from urllib.parse import urlencode
+
+from ansible.module_utils.common.dict_transformations import dict_merge, recursive_diff
 from ansible.module_utils.common.process import get_bin_path
 from ansible.module_utils.common.text.converters import to_bytes, to_text
-from urllib.parse import urlencode
-from ansible.module_utils.common.dict_transformations import dict_merge, recursive_diff
 
 validRemote = re.compile(r"^[a-zA-Z0-9]*[:]*$")
 
@@ -209,12 +210,10 @@ class IncusClient(object):
         # syntax: incus list [<remote>:] [<filter>...] [flags]
         args = ["list", ensure_remote(self.remote)]
         if filter:
-            (
-                args.extend(
-                    [
-                        filter,
-                    ]
-                ),
+            args.extend(
+                [
+                    filter,
+                ]
             )
         args.extend(["--project", self.project, "--format", "json"])
         data = self._execute(*args)
@@ -230,9 +229,30 @@ class IncusClient(object):
         data = data.get("metadata", {})
         return data if bool(data) else {}
 
+    def get_network_acl(self, name):
+        data = self.query_raw(
+            "GET", "/1.0/network-acls/{0}".format(name), ok_errors=[404]
+        )
+        data = data.get("metadata", {})
+        return data if bool(data) else {}
+
+
+def remove_none_keys(d):
+    r = {}
+    for key, val in d.items():
+        if val is None:
+            continue
+        if isinstance(val, dict):
+            val = remove_none_keys(val)
+        if isinstance(val, list):
+            val = [remove_none_keys(x) for x in val]
+        r[key] = val
+    return r
+
 
 class Patch:
     def __init__(self, *, current, supported_fields, patch, next_state):
+        patch = remove_none_keys(patch)
         self.prev_state = "absent" if len(current) == 0 else "present"
         self.next_state = next_state
         self.before = {k: v for k, v in current.items() if k in supported_fields}

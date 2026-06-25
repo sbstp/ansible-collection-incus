@@ -1,0 +1,47 @@
+---
+- name: Pick a network acl name
+  ansible.builtin.set_fact:
+    object_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
+
+- name: Create network acl
+  sbstp.incus.incus_network_acl:
+    name: "{{ object_name }}"
+    egress:
+      - state: enabled
+        action: reject
+        destination: 10.0.0.0/24
+        protocol: tcp
+      - state: enabled
+        action: reject
+        destination: 192.168.0.0/16
+        protocol: tcp
+      - state: enabled
+        action: reject
+        destination: 172.16.0.0/12
+        protocol: tcp
+
+  register: create_result
+
+- name: Update network acl
+  sbstp.incus.incus_network_acl:
+    name: "{{ object_name }}"
+    egress:
+      - state: enabled
+        action: drop
+        destination: 10.0.0.0/24,192.168.0.0/16,172.16.0.0/12
+  register: update_result
+
+- name: Destroy network acl
+  sbstp.incus.incus_network_acl:
+    name: "{{ object_name }}"
+    state: absent
+  register: destroy_result
+
+- name: Verify results
+  ansible.builtin.assert:
+    that:
+      - not create_result.failed
+      - not update_result.failed
+      - not destroy_result.failed
+      - create_result.after.egress | length == 3
+      - update_result.after.egress | length == 1

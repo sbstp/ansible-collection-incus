@@ -22,7 +22,7 @@ options:
         default: local
     project:
         description:
-            - Project to manage the profile in
+            - Project to manage the storage pool in
         type: str
         default: default
     description:
