@@ -42,8 +42,9 @@
 # >0 processes
 
 - name: Get a specific instance
-  sbstp.incus.incus_instance_info:
+  sbstp.incus.incus_info:
     name: mymv
+    type: instance
   register: instance
 
 - name: Debug instance
