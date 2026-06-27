@@ -1,7 +1,10 @@
----
+- name: Pick a container name
+  ansible.builtin.set_fact:
+    ct_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
+
 - name: create container
   sbstp.incus.incus_instance:
-    name: mycontainer
+    name: "{{ ct_name }}"
     source:
       type: image
       alias: debian/12/cloud
@@ -13,13 +16,17 @@
 
 - name: destroy container
   sbstp.incus.incus_instance:
-    name: mycontainer
+    name: "{{ ct_name }}"
     state: absent
   register: destroy_result
 
+- name: Pick a virtual-machine name
+  ansible.builtin.set_fact:
+    vm_name: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters length=10') }}"
+
 - name: create vm
   sbstp.incus.incus_instance:
-    name: myvm
+    name: "{{ vm_name }}"
     type: virtual-machine
     source:
       type: image
@@ -28,37 +35,27 @@
       protocol: "simplestreams"
       mode: "pull"
       allow_inconsistent: false
+      wait_for_ipv4_addresses: true
   register: create_vm_result
-
-- name: Debug
-  ansible.builtin.debug:
-    var: create_vm_result
-
-- name: wait a bit for vm too boot
-  ansible.builtin.pause:
-    seconds: 60
-
-# could check state of vm here and assert that is running and have
-# >0 processes
 
 - name: Get a specific instance
   sbstp.incus.incus_info:
-    name: mymv
+    name: "{{ vm_name }}"
     type: instance
   register: instance
-
-- name: Debug instance
-  ansible.builtin.debug:
-    var: instance
+  until: instance.object.status | default('') == 'Running'
+  retries: 12 # max 60 seconds
+  delay: 5
 
 - name: stop vm
   sbstp.incus.incus_instance:
-    name: myvm
+    name: "{{ vm_name }}"
     state: stopped
+    force_stop: true
 
 - name: destroy vm
   sbstp.incus.incus_instance:
-    name: myvm
+    name: "{{ vm_name }}"
     state: absent
   register: destroy_vm_result
 
