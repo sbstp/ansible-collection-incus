@@ -40,10 +40,39 @@ options:
             - storage
 """
 
+RETURN = """
+object:
+    description: When name is used to select a specific object
+    type: dict
+    returned: success
+objects:
+    description: When name is not used and all the objects of C(type) are returned.
+    type: list
+    elements: dict
+    returned: success
+name:
+    description: Same value as input name, if specified
+    type: str
+    returned: success
+"""
+
+EXAMPLES = """
+- host: localhost
+  connection: local
+  tasks:
+    - name: Get all networks
+      sbstp.incus.incus_info:
+          type: network
+      register: networks_info
+    - name: Get default storage pool
+      sbstp.incus.incus_info:
+          type: storage
+          name: default
+"""
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.sbstp.incus.plugins.module_utils.incuscli import (
     IncusClient,
-    IncusClientException,
 )
 
 
