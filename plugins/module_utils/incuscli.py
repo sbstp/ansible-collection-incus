@@ -115,7 +115,7 @@ class IncusClient(object):
             method, url, payload=payload, url_params=url_params, ok_errors=ok_errors
         )
         if data.get("status_code", 500) != 200:
-            raise IncusClientException("Failed to create profile", **data)
+            raise IncusClientException("Failed run query", **data)
         return data
 
     def _execute(self, *args):
